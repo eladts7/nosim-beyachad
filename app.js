@@ -126,16 +126,18 @@ function sampleVer(status){
 function seed(){
   const now=Date.now(),dow=n=>{const x=(new Date().getDay()+n)%7;return String(x===6?0:x);};
   const d1={name:'אורית לוי',phone:'052-1234567',type:'taxi',area:'רמת גן, גבעתיים, תל אביב',accessible:false,active:true,createdAt:now-9e8,verification:sampleVer('approved'),
-    carModel:'טויוטה קורולה',carColor:'לבנה',plate:'12-345-67',trunk:true,languages:['עברית','רוסית'],experience:['אוטיזם','מוגבלות שכלית'],firstAid:true,emergencyName:'דני לוי',emergencyPhone:'050-0000000',pastRides:27,pastHours:36,pastPassengers:7,joinedAt:now-2.2e10,redeemed:['coffee'],
+    carModel:'טויוטה קורולה',carColor:'לבנה',plate:'12-345-67',trunk:true,languages:['עברית','רוסית'],experience:['אוטיזם','מוגבלות שכלית'],firstAid:true,fun:{orgVotes:4,lastMinute:1,streak:9,access:2,thanks:14},emergencyName:'דני לוי',emergencyPhone:'050-0000000',pastRides:27,pastHours:36,pastPassengers:7,joinedAt:now-2.2e10,redeemed:['coffee'],
     thanks:[{from:'שירה, עמותת בית חם',text:'אורית, הדיירים מחכים לימי שלישי בגללך. תודה שאת שם כל שבוע 💛',ago:'לפני 3 ימים'},{from:'משה, נוסע',text:'הגעתי בזמן לבדיקה, ועוד עזרת לי עם ההליכון. אין מילים.',ago:'לפני שבועיים'}]};
   const d2={name:'אבי פרץ',phone:'050-1112233',type:'taxi',area:'תל אביב, יפו, בת ים',accessible:true,active:true,createdAt:now-7e8,verification:sampleVer('approved'),
-    carModel:'פולקסווגן טרנספורטר',carColor:'אפור',plate:'98-765-43',trunk:true,languages:['עברית','ערבית'],experience:['מוגבלות פיזית','קשישים'],firstAid:false};
+    carModel:'פולקסווגן טרנספורטר',carColor:'אפור',plate:'98-765-43',trunk:true,languages:['עברית','ערבית'],experience:['מוגבלות פיזית','קשישים'],firstAid:false,fun:{orgVotes:2,lastMinute:2,streak:3,access:11,thanks:9},pastRides:31,joinedAt:now-3e10};
   const d3={name:'יעל ברק',phone:'053-4445566',type:'citizen',area:'הרצליה, רמת השרון',accessible:false,active:true,createdAt:now-2e6,verification:sampleVer('pending'),languages:['עברית','אנגלית'],experience:[]};
   const as=(id,d)=>({driverId:id,driverName:d.name,driverPhone:d.phone,driverCar:carDesc(d)});
   const base={passengers:1,needs:[],notes:'',fromPlace:'',toPlace:'',days:[],date:'',until:'',driverId:null,covers:{}};
   const firstOcc=n=>addDays(n);
   const out={
-    drivers:{d1,d2,d3},
+    drivers:{d1,d2,d3,
+      d4:{name:'משה דהן',phone:'052-7778899',type:'taxi',area:'חולון, בת ים',accessible:false,active:true,createdAt:now-6e9,verification:sampleVer('approved'),languages:['עברית','צרפתית'],experience:['קשישים'],fun:{orgVotes:1,lastMinute:5,streak:2,access:1,thanks:11},pastRides:18,joinedAt:now-1.2e10},
+      d5:{name:'נועה פרידמן',phone:'054-1212121',type:'citizen',area:'גבעתיים, רמת גן',accessible:false,active:true,createdAt:now-4e8,verification:sampleVer('approved'),languages:['עברית','אנגלית'],experience:['דמנציה'],fun:{orgVotes:1,lastMinute:1,streak:1,access:0,thanks:22},pastRides:4,joinedAt:now-5e8}},
     requests:{
       r1:{...base,kind:'org',orgName:'עמותת בית חם',contactName:'שירה',phone:'03-5551234',fromCity:'רמת גן',fromPlace:'דיור בקהילה',toCity:'הרצליה',toPlace:'בית ההורים',schedule:'weekly',days:[dow(2),dow(5)],time:'16:00',needs:['autism'],cog:{alone:'no',from:'מדריך/ה בדיור',to:'אחד ההורים, בפתח הבית',comm:'משפטים קצרים ורגועים. לא מדבר הרבה, וזה בסדר.',calm:'אוהב לשבת מקדימה. רעש חזק וצפירות מלחיצים, מוזיקה שקטה מרגיעה.'},notes:'',status:'open',covers:{},createdAt:now-5e6},
       r2:{...base,kind:'private',orgName:'',contactName:'משה',phone:'054-3332211',fromCity:'תל אביב',fromPlace:'צפון הישן',toCity:'תל אביב',toPlace:'בית חולים איכילוב',schedule:'once',date:addWeekday(1),time:'09:30',needs:['walker','hearing','returnTrip'],notes:'קשיש, הולך עם הליכון ומרכיב מכשיר שמיעה. כדאי לדבר לאט ומול הפנים.',status:'open',createdAt:now-4e6},
@@ -151,7 +153,7 @@ function seed(){
 
 /* ===== שכבת נתונים ===== */
 function demoApi(){
-  const KEY='rides-v8-demo';let data=lsGet(KEY);if(!data||!data.requests)data=seed();
+  const KEY='rides-v9-demo';let data=lsGet(KEY);if(!data||!data.requests)data=seed();
   const subs={drivers:[],requests:[]},authSubs=[];let user=null;
   const snap=c=>Object.entries(data[c]).map(([id,v])=>({id,...v}));
   const save=()=>{lsSet(KEY,data);for(const c in subs)subs[c].forEach(cb=>cb(snap(c)));};
@@ -194,12 +196,13 @@ let api;
 let requests=[],drivers=[],reqUnsub=null;
 function ensureRequests(){
   if(reqUnsub) return;
-  reqUnsub=api.listen('requests',l=>{requests=l;renderBoard();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
+  reqUnsub=api.listen('requests',l=>{requests=l;renderBoard();if(location.hash==='#community')renderCommunity();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
 }
 
 /* ===== ניווט ===== */
-const VIEWS=['home','need','drive','admin'];
+const VIEWS=['home','need','drive','community','admin'];
 function route(){
+  if((location.hash.slice(1)||'home')==='community')setTimeout(()=>openCommunity(),0);
   const v=location.hash.slice(1)||'home',view=VIEWS.includes(v)?v:'home';
   document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active',el.id==='v-'+view));
   document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('on',a.dataset.nav===view));
@@ -390,6 +393,7 @@ function renderProfile(){
     <div class="sec"><h3>🗣️ שפות שאני מדבר/ת</h3>${chipChecks('languages',LANGS,d.languages)}</div>
     <div class="sec"><h3>🤝 ניסיון עם</h3><p class="hint" style="margin-top:-4px">לא חובה. עוזר להתאים לך נסיעות שתרגיש/י בהן בנוח.</p>${chipChecks('experience',EXP,d.experience)}
       <div class="checks" style="margin-top:8px"><label><input type="checkbox" name="firstAid" value="1" ${d.firstAid?'checked':''}>⛑️ עברתי קורס עזרה ראשונה</label></div></div>
+    <div class="sec"><h3>🌟 קהילה</h3><div class="checks"><label><input type="checkbox" name="showInCommunity" value="1" ${d.showInCommunity!==false?'checked':''}>אפשר להציג אותי בעמוד הקהילה (שם פרטי ועיר בלבד)</label></div></div>
     <div class="sec"><h3>📍 אזור</h3><div class="field"><input name="area" type="text" maxlength="80" value="${esc(d.area)}"></div></div>
     <div class="sec"><h3>🆘 איש/אשת קשר לחירום</h3><p class="hint" style="margin-top:-4px">נראה רק למנהלי המערכת.</p>
       <div class="profile-grid">
@@ -402,7 +406,7 @@ function renderProfile(){
 async function submitProfile(e){
   e.preventDefault();const fd=new FormData(e.target),s=k=>String(fd.get(k)||'').trim();
   const p={carModel:s('carModel'),carColor:s('carColor'),plate:s('plate'),trunk:fd.get('trunk')==='1',accessible:fd.get('accessible')==='1',
-    languages:fd.getAll('languages'),experience:fd.getAll('experience'),firstAid:fd.get('firstAid')==='1',area:s('area')||me.area,
+    languages:fd.getAll('languages'),experience:fd.getAll('experience'),firstAid:fd.get('firstAid')==='1',showInCommunity:fd.get('showInCommunity')==='1',area:s('area')||me.area,
     emergencyName:s('emergencyName'),emergencyPhone:s('emergencyPhone')};
   if(p.emergencyPhone&&!validPhone(p.emergencyPhone))return $('#profErr').textContent='טלפון החירום לא תקין.';
   try{await api.update('drivers',me.id,p);Object.assign(me,p);toast('הפרופיל נשמר ✓');renderVerify();renderBoard();}
@@ -510,6 +514,7 @@ function badgesFor(s){
     {icon:'🗣️',t:'מדבר/ת כמה שפות',on:(me.languages||[]).length>1},
     {icon:'⛑️',t:'עזרה ראשונה',on:!!me.firstAid},
     {icon:'🥇',t:'50 נסיעות',on:s.rides>=50},
+    {icon:'🌟',t:'נהג/ת השבוע',on:(me.fun?.orgVotes||0)>=3},
     {icon:'🏆',t:'100 נסיעות',on:s.rides>=100}
   ];
 }
@@ -570,6 +575,65 @@ function openRedeem(pid){
   $('#redeemBg').classList.add('open');
 }
 const closeRedeem=()=>$('#redeemBg').classList.remove('open');
+
+
+/* ===== קהילה ===== */
+let commDrivers=[],commUnsub=null;
+function openCommunity(){
+  if(!api)return;
+  if(!commUnsub)commUnsub=api.listen('drivers',l=>{commDrivers=l;renderCommunity();},()=>{});
+  ensureRequests();renderCommunity();
+}
+const CATS=[
+  {k:'orgVotes',i:'💛',t:'בחירת העמותות',why:d=>`${d.fun.orgVotes} עמותות בחרו בה/בו השבוע`},
+  {k:'access',i:'♿',t:'שגריר/ת נגישות',why:d=>`${d.fun.access} נסיעות עם כיסא גלגלים או ליווי מיוחד`},
+  {k:'lastMinute',i:'⚡',t:'מציל/ת הרגע האחרון',why:d=>`לקח/ה ${d.fun.lastMinute} נסיעות שהיו עלולות ליפול`},
+  {k:'streak',i:'🔁',t:'הכי נאמן/ה',why:d=>`${d.fun.streak} שבועות ברצף באותה נסיעה קבועה`},
+  {k:'thanks',i:'🙏',t:'הכי הרבה תודות',why:d=>`${d.fun.thanks} הודעות תודה ממשפחות ועמותות`}
+];
+const shortName=d=>{const p=String(d.name||'').split(' ');return p[0]+(p[1]?' '+p[1][0]+'׳':'');};
+const cityOf=d=>String(d.area||'').split(',')[0].trim();
+function renderCommunity(){
+  const el=$('#communityBody');if(!el)return;
+  const pool=commDrivers.filter(d=>d.active!==false&&d.verification?.status==='approved'&&d.showInCommunity!==false&&d.fun);
+  const used=new Set();
+  const winners=CATS.map(c=>{const w=[...pool].sort((a,b)=>(b.fun[c.k]||0)-(a.fun[c.k]||0)).find(d=>!used.has(d.id)&&(d.fun[c.k]||0)>0);if(w)used.add(w.id);return w?{c,w}:null;}).filter(Boolean);
+  const newest=[...pool].sort((a,b)=>(b.joinedAt||b.createdAt||0)-(a.joinedAt||a.createdAt||0))[0];
+  const doneCnt=requests.filter(r=>r.status==='done').length+requests.reduce((n,r)=>n+Object.values(r.covers||{}).filter(c=>c.done).length,0);
+  const totalRides=pool.reduce((n,d)=>n+(d.pastRides||0),0)+doneCnt;
+  const orgs=new Set(requests.filter(r=>r.kind==='org').map(r=>r.orgName)).size;
+  const star=winners[0];
+  el.innerHTML=`
+  <h1>הקהילה שלנו</h1>
+  <p class="lead">האנשים שמניעים את זה. כל שבוע אנחנו חוגגים נהגים מסיבות שונות, לא רק מי שנסע הכי הרבה.</p>
+  <div class="cm-stats">
+    <div><b>${totalRides}</b><span>נסיעות עד היום</span></div>
+    <div><b>${pool.length}</b><span>נהגים מאומתים</span></div>
+    <div><b>${orgs}</b><span>עמותות פעילות</span></div>
+  </div>
+  ${star?`<div class="cm-hero"><div class="cm-hero-badge">🌟 נהג/ת השבוע</div>
+    <div class="cm-hero-row"><div class="rw-avatar">${esc(star.w.name.split(' ').map(x=>x[0]).slice(0,2).join(''))}</div>
+    <div><div class="rw-name">${esc(shortName(star.w))}</div><div class="rw-sub">${esc(cityOf(star.w))} · ${star.w.type==='taxi'?'נהג/ת מונית':'מתנדב/ת עם רכב פרטי'}</div></div></div>
+    <p class="cm-quote">״${esc((star.w.thanks||[])[0]?.text||'תודה שאת/ה שם בשבילנו כל שבוע.')}״</p>
+    <div class="cm-why">${star.c.i} ${esc(star.c.t)}: ${esc(star.c.why(star.w))}</div></div>`:''}
+  <h3>🏅 המצטיינים השבוע, כל אחד מסיבה אחרת</h3>
+  <div class="cm-cats">${winners.slice(1).map(({c,w})=>`<div class="cm-cat"><div class="cm-cat-i">${c.i}</div><div><b>${esc(c.t)}</b><div class="cm-cat-n">${esc(shortName(w))} · ${esc(cityOf(w))}</div><div class="hint">${esc(c.why(w))}</div></div></div>`).join('')}
+    ${newest?`<div class="cm-cat"><div class="cm-cat-i">🌱</div><div><b>הצטרפות השבוע</b><div class="cm-cat-n">${esc(shortName(newest))} · ${esc(cityOf(newest))}</div><div class="hint">ברוכים הבאים! כבר ${newest.pastRides||0} נסיעות ראשונות</div></div></div>`:''}</div>
+  <h3>👋 הכירו את</h3>
+  <div class="cm-spot">
+    <div class="cm-spot-card"><div class="cm-spot-tag">עמותה</div><b>עמותת בית חם</b>
+      <p>מפעילה דירות בקהילה לאנשים עם מוגבלות שכלית. בזכות נהגים מתנדבים, הדיירים מגיעים כל שבוע לבתי ההורים ולטיפולים.</p></div>
+    <div class="cm-spot-card"><div class="cm-spot-tag">נהג</div><b>${esc(shortName(commDrivers.find(d=>d.id==='d2')||{name:'אבי פ'}))}, נהג מונית</b>
+      <p>״התחלתי בנסיעה אחת ביום שקט. היום יש לי שלוש נסיעות קבועות, ואני מכיר את הנוסעים בשמם.״</p></div>
+  </div>
+  <h3>📰 מה חדש</h3>
+  <div class="cm-news">
+    <div><span class="cm-date">השבוע</span>עמותה חדשה הצטרפה ופרסמה 4 נסיעות קבועות ראשונות.</div>
+    <div><span class="cm-date">השבוע</span>נוספה אפשרות לכסות שבוע אחד בנסיעה קבועה, עד שנמצא נהג קבוע.</div>
+    <div><span class="cm-date">החודש</span>שותף ראשון להטבות: קפה ומאפה לנהגים אחרי 10 נסיעות (לדוגמה).</div>
+  </div>
+  <p class="hint" style="text-align:center;margin-top:18px">נהגים מופיעים כאן רק בהסכמתם, עם שם פרטי ועיר בלבד. בגרסת ההדגמה התוכן לדוגמה.</p>`;
+}
 
 /* ===== ניהול ===== */
 let adminOn=false,aTab='reqs',aFilter='open',aQuery='',drvUnsub=null,dFilter='pending';

@@ -204,6 +204,26 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
 .cog-h{font-weight:700;margin-bottom:4px}
 .cog-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#f3eefc;border:1px solid #d9ccf5;font-size:14px;line-height:1.5}
 .cog-note.full{display:grid;gap:4px}
+.cm-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.cm-stats div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.cm-stats b{display:block;font-size:26px;font-weight:800;line-height:1.1}
+.cm-stats span{font-size:13px;color:var(--muted)}
+.cm-hero{background:linear-gradient(135deg,#1d2433,#2f3b55);color:#fff;border-radius:var(--radius);padding:20px}
+.cm-hero-badge{display:inline-block;background:var(--brand);color:var(--ink);font-weight:800;border-radius:999px;padding:3px 12px;font-size:14px;margin-bottom:12px}
+.cm-hero-row{display:flex;align-items:center;gap:14px}
+.cm-quote{font-size:17px;line-height:1.5;margin:14px 0 8px;color:#f6f4ef}
+.cm-why{font-size:14px;color:#f5d36b}
+.cm-cats{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.cm-cat{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.cm-cat-i{font-size:26px;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--brand-soft);flex-shrink:0}
+.cm-cat-n{font-size:15px;margin:2px 0}
+.cm-spot{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.cm-spot-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.cm-spot-card p{margin:6px 0 0;color:#475467;font-size:15px;line-height:1.5}
+.cm-spot-tag{display:inline-block;font-size:12px;font-weight:700;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 10px;margin-bottom:6px}
+.cm-news{display:grid;gap:8px}
+.cm-news div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:15px}
+.cm-date{display:inline-block;font-size:12px;font-weight:700;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:1px 8px;margin-inline-end:8px}
 </style>
 
 </head>
@@ -214,6 +234,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
     <nav>
       <a href="#need" data-nav="need">צריך הסעה</a>
       <a href="#drive" data-nav="drive">נהגים</a>
+      <a href="#community" data-nav="community">קהילה</a>
     </nav>
   </div>
   <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">🕯️ תצוגת שבת</button></div>
@@ -371,6 +392,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
       <div id="profilePane" hidden><div class="card"><form id="profileForm" novalidate></form></div></div>
     </div>
   </section>
+
+  <!-- ===== קהילה ===== -->
+  <section class="view" id="v-community"><div id="communityBody"></div></section>
 
   <!-- ===== ניהול ===== -->
   <section class="view" id="v-admin">
