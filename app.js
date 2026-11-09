@@ -728,7 +728,7 @@ function renderAdmin(){
     <div class="stat"><div class="n">${live.filter(r=>r.schedule==='weekly'&&r.status==='open').length}</div><div class="t">קבועות שמחפשות נהג קבוע</div></div>
     <div class="stat"><div class="n">${drivers.filter(d=>d.active&&vs(d)==='approved').length}</div><div class="t">נהגים מאומתים</div></div>
     <div class="stat ${drivers.some(d=>vs(d)==='pending')?'hot':''}"><div class="n">${drivers.filter(d=>vs(d)==='pending').length}</div><div class="t">ממתינים לאימות</div></div>`;
-  const F={open:'פעילות',missing:'בלי נהג',expired:'עבר מועדן',done:'בוצעו',cancelled:'בוטלו',all:'הכל'};
+  const F={open:'פעילות',missing:'בלי נהג',expired:'עבר המועד',done:'בוצעו',cancelled:'בוטלו',all:'הכל'};
   $('#aChips').innerHTML=Object.entries(F).map(([k,v])=>`<button class="chip ${k===aFilter?'on':''}" data-act="afilter" data-f="${k}">${v}</button>`).join('');
   let l=requests.filter(r=>{
     if(aFilter==='all')return true;
