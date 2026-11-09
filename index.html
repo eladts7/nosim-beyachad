@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>נוסעים ביחד</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f4ef;--card:#fff;--ink:#1d2433;--muted:#667085;--line:#e6e2d8;
+  --brand:#f5b800;--brand-soft:#fff4cc;--accent:#1f6f5c;--accent-soft:#e3f2ed;
+  --danger:#b42318;--danger-soft:#fde8e6;--warn:#9a5b00;--warn-soft:#fff1db;
+  --ok:#1f7a45;--ok-soft:#e2f4e8;--info:#2457a6;--info-soft:#e5eefc;
+  --radius:14px;--shadow:0 1px 2px rgba(16,24,40,.06),0 2px 8px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Heebo,system-ui,sans-serif;font-size:16px;line-height:1.5}
+a{color:var(--accent)}
+[hidden]{display:none!important}
+header{background:var(--ink);color:#fff;position:sticky;top:0;z-index:20}
+.bar{max-width:980px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:19px;color:#fff;text-decoration:none}
+.logo .dot{width:28px;height:28px;border-radius:8px;background:var(--brand);display:grid;place-items:center;font-size:16px}
+nav{display:flex;gap:4px;margin-inline-start:auto;flex-wrap:wrap}
+nav a{color:#d0d5dd;text-decoration:none;padding:6px 10px;border-radius:8px;font-size:15px}
+nav a.on{background:rgba(255,255,255,.12);color:#fff}
+.demo-banner{background:var(--brand);color:var(--ink);text-align:center;font-size:14px;padding:4px 12px;font-weight:500}
+main{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+.view{display:none}.view.active{display:block}
+h1{font-size:26px;margin:0 0 6px;font-weight:800}
+h2{font-size:20px;margin:0 0 12px}
+h3{font-size:17px;margin:18px 0 8px}
+.lead{color:var(--muted);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.hero{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:20px}
+.choice{display:block;text-decoration:none;color:var(--ink);padding:24px;border-radius:var(--radius);border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);transition:transform .12s}
+.choice:hover{transform:translateY(-2px)}
+.choice .ic{font-size:30px}
+.choice h3{margin:8px 0 4px;font-size:20px}
+.choice p{margin:0;color:var(--muted)}
+.choice.drive{border-top:6px solid var(--brand)}
+.choice.ride{border-top:6px solid var(--accent)}
+.how{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:26px}
+.how div{padding:14px;border-radius:12px;background:#fff;border:1px dashed var(--line);font-size:15px;color:var(--muted)}
+.how b{display:block;color:var(--ink);font-size:16px;margin-bottom:2px}
+.small-link{display:inline-block;margin-top:22px;color:var(--muted);font-size:14px}
+form .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.field{display:flex;flex-direction:column;gap:4px}
+.field.full{grid-column:1/-1}
+.lbl{font-weight:500;font-size:15px}
+.req::after{content:" *";color:var(--danger)}
+input[type=text],input[type=tel],input[type=email],input[type=password],input[type=date],input[type=time],input[type=number],input[type=search],select,textarea{
+  font:inherit;padding:10px 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;color:var(--ink);width:100%}
+textarea{min-height:76px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px;border-color:transparent}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.checks label{display:flex;align-items:center;gap:6px;border:1px solid #d0d5dd;border-radius:999px;padding:7px 14px;cursor:pointer;background:#fff;font-size:15px;user-select:none}
+.checks input{accent-color:var(--accent)}
+.checks label:has(input:checked){background:var(--accent-soft);border-color:var(--accent)}
+.seg{display:flex;border:1px solid #d0d5dd;border-radius:12px;overflow:hidden;background:#fff}
+.seg label{flex:1;text-align:center;padding:10px 8px;cursor:pointer;font-weight:500;border-inline-start:1px solid #d0d5dd}
+.seg label:first-child{border-inline-start:0}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--ink);color:#fff}
+.hint{font-size:13px;color:var(--muted)}
+.note{font-size:14px;background:var(--info-soft);color:#1d3d73;border-radius:10px;padding:10px 12px}
+.btn{font:inherit;font-weight:500;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;background:var(--ink);color:#fff;display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:15px}
+.btn.brand{background:var(--brand);color:var(--ink)}
+.btn.accent{background:var(--accent)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid #d0d5dd}
+.btn.wa{background:#1f9d55;color:#fff}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid #f2b8b5}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn:disabled{opacity:.6;cursor:default}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.success{text-align:center;padding:36px 20px}
+.success .big{font-size:44px}
+.stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.stat .n{font-size:28px;font-weight:800;line-height:1.1}
+.stat .t{color:var(--muted);font-size:14px}
+.stat.hot{background:var(--warn-soft);border-color:#f5d39b}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tab{background:none;border:0;font:inherit;padding:10px 14px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;font-weight:500}
+.tab.on{color:var(--ink);border-color:var(--brand)}
+.tab .cnt{background:var(--brand);color:var(--ink);border-radius:999px;font-size:12px;padding:0 7px;margin-inline-start:4px}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar input[type=search]{flex:1;min-width:180px;max-width:300px}
+.chip{font:inherit;font-size:14px;border:1px solid #d0d5dd;background:#fff;border-radius:999px;padding:5px 12px;cursor:pointer;color:var(--ink)}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.list{display:grid;gap:12px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.item.mine{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.item-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.when{font-weight:700}
+.route{font-size:18px;font-weight:700;margin:6px 0}
+.route .arrow{color:var(--muted);font-weight:400;margin:0 4px}
+.route small{display:block;font-size:14px;font-weight:400;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:14px}
+.meta b{color:var(--ink);font-weight:500}
+.badge{font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.s-open{background:var(--warn-soft);color:var(--warn)}
+.s-taken{background:var(--info-soft);color:var(--info)}
+.s-done{background:var(--ok-soft);color:var(--ok)}
+.s-cancelled{background:#eef0f3;color:var(--muted)}
+.tag{font-size:12px;border-radius:6px;padding:1px 8px;background:#eef0f3;color:#475467}
+.tag.weekly{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.tag.need{background:var(--danger-soft);color:var(--danger)}
+.tag.org{background:var(--brand-soft);color:#7a5a00}
+.contact{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--accent-soft);font-size:15px}
+.contact .num{font-weight:700;direction:ltr;unicode-bidi:embed;white-space:nowrap}
+.item .actions{margin-top:12px}
+.inactive{opacity:.55}
+.empty{text-align:center;color:var(--muted);padding:40px 12px}
+.narrow{max-width:420px;margin:30px auto}
+.err{color:var(--danger);font-size:14px;min-height:20px}
+.me{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.verify{border:1px solid #f5d39b;background:#fffaf0;border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.verify.ok{background:var(--ok-soft);border-color:#a9dcbc}
+.verify.bad{background:var(--danger-soft);border-color:#f2b8b5}
+.verify h2{margin:0 0 4px;font-size:18px}
+.docs{display:grid;gap:12px;margin-top:14px}
+.doc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px}
+.doc-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.doc-head b{font-size:15px}
+.doc-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.doc-row .field{flex:1;min-width:150px}
+.file{font:inherit;font-size:14px}
+.filebtn{align-self:flex-start;cursor:pointer}
+.filebtn input{display:none}
+.file-ok{font-size:13px;color:var(--ok)}
+.v-none{background:#eef0f3;color:var(--muted)}
+.v-pending{background:var(--warn-soft);color:var(--warn)}
+.v-approved{background:var(--ok-soft);color:var(--ok)}
+.v-rejected{background:var(--danger-soft);color:var(--danger)}
+.thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.thumb{border:1px solid var(--line);border-radius:10px;padding:6px;background:#fff;font-size:12px;color:var(--muted);text-align:center;cursor:pointer;width:130px;font-family:inherit}
+.thumb img{width:100%;height:80px;object-fit:cover;border-radius:6px;display:block;margin-bottom:4px;background:#f2f4f7}
+.thumb .noimg{height:80px;display:grid;place-items:center;font-size:28px;background:#f2f4f7;border-radius:6px;margin-bottom:4px}
+.thumb.warn{border-color:#f2b8b5}
+.light{position:fixed;inset:0;background:rgba(16,24,40,.8);display:none;align-items:center;justify-content:center;z-index:70;padding:20px}
+.light.open{display:flex}
+.light img{max-width:100%;max-height:90vh;border-radius:8px;background:#fff}
+.reject-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.reject-row input{flex:1;min-width:180px}
+@media (max-width:560px){h1{font-size:22px}.card{padding:16px}nav a{padding:6px 8px;font-size:14px}}
+.demo-banner button{font:inherit;font-size:13px;background:rgba(0,0,0,.08);border:0;border-radius:6px;padding:1px 8px;margin-inline-start:8px;cursor:pointer;color:var(--ink)}
+.demo-try{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--brand-soft);border:1px dashed #e0b84a;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:15px}
+.occ{display:grid;gap:6px;margin-top:10px}
+.occ div{display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:6px 10px;border-radius:8px;background:#f7f7f5}
+.occ .miss{background:var(--warn-soft);color:var(--warn);font-weight:500}
+.occ .got{background:var(--ok-soft);color:var(--ok)}
+.driver-box{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--info-soft);font-size:15px}
+.driver-box .car{color:#1d3d73;font-size:14px}
+.tag.seek{background:var(--warn-soft);color:var(--warn);font-weight:700}
+.tag.cover{background:var(--info-soft);color:var(--info);font-weight:700}
+.profile-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.sec{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.sec:first-child{margin-top:0;padding-top:0;border-top:0}
+.btn.alt{background:#fff;color:var(--ink);border:1px solid var(--brand)}
+.rw-hero{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#1d2433,#2f3b55);color:#fff;border-radius:var(--radius);padding:20px}
+.rw-avatar{width:62px;height:62px;border-radius:50%;background:var(--brand);color:var(--ink);display:grid;place-items:center;font-weight:800;font-size:22px;flex-shrink:0;box-shadow:0 0 0 4px rgba(245,184,0,.3)}
+.rw-name{font-size:22px;font-weight:800}
+.rw-sub{color:#c9d1e0;font-size:14px}
+.rw-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.rw-stats div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.rw-stats b{display:block;font-size:26px;font-weight:800;line-height:1.1}
+.rw-stats span{font-size:13px;color:var(--muted)}
+.rw-next{padding:16px}
+.rw-next-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.rw-bar{height:12px;border-radius:999px;background:#eef0f3;overflow:hidden;margin-bottom:8px}
+.rw-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),#f59e0b);border-radius:999px}
+.rw-badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.rw-badge{background:#fff;border:1px dashed #d0d5dd;border-radius:12px;padding:10px 6px;text-align:center;font-size:13px;color:var(--muted);filter:grayscale(1);opacity:.55}
+.rw-badge span{display:block;font-size:26px;margin-bottom:2px}
+.rw-badge.on{filter:none;opacity:1;border:1px solid #f5d39b;background:var(--brand-soft);color:var(--ink);font-weight:500}
+.rw-perks{display:grid;gap:10px}
+.rw-perk{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-inline-start:5px solid var(--c);border-radius:12px;padding:12px 14px}
+.rw-perk.locked{opacity:.7}
+.rw-perk-ic{font-size:28px;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#f6f4ef;flex-shrink:0}
+.rw-perk-body{flex:1;min-width:0}
+.rw-set{font-style:italic}
+.rw-thanks{display:grid;gap:10px}
+.rw-thx{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.rw-thx p{margin:0 0 4px;font-size:15px}
+.rw-thx span{font-size:13px;color:var(--muted)}
+.rw-cert{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding:14px 16px}
+.modal-bg{position:fixed;inset:0;background:rgba(16,24,40,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:65}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius);width:100%;padding:22px}
+.shabbat{position:fixed;inset:0;z-index:80;background:radial-gradient(circle at 50% 30%,#2f3b55,#1d2433 70%);color:#fff;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
+.shabbat-in{max-width:420px}
+.shabbat-ic{font-size:44px;letter-spacing:6px}
+.shabbat h1{font-size:34px;margin:10px 0 8px;color:#f5d36b}
+.shabbat p{font-size:17px;color:#d0d5dd;line-height:1.6}
+.shabbat .hint{color:#98a2b3}
+.shabbat .btn.ghost{color:#fff;border-color:rgba(255,255,255,.3);margin-top:14px}
+.shabbat-chip{margin-top:22px;display:inline-block;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;color:var(--muted)}
+.cog{margin-top:14px;padding:14px;border-radius:12px;background:#f3eefc;border:1px solid #d9ccf5}
+.cog-h{font-weight:700;margin-bottom:4px}
+.cog-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#f3eefc;border:1px solid #d9ccf5;font-size:14px;line-height:1.5}
+.cog-note.full{display:grid;gap:4px}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="logo" href="#home"><span class="dot">🚕</span><span id="appName">נוסעים ביחד</span></a>
+    <nav>
+      <a href="#need" data-nav="need">צריך הסעה</a>
+      <a href="#drive" data-nav="drive">נהגים</a>
+    </nav>
+  </div>
+  <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">🕯️ תצוגת שבת</button></div>
+</header>
+
+<div class="shabbat" id="shabbat" hidden><div class="shabbat-in">
+  <div class="shabbat-ic">🕯️🕯️</div><h1>שבת שלום</h1>
+  <p>המערכת שומרת שבת ואינה פעילה בשבת.<br>נחזור לפעול במוצאי שבת, בערך ב-<b id="shabbatEnd"></b>.</p>
+  <p class="hint">נסיעות לשבת לא מתפרסמות, ונהגים לא מקבלים פניות בשבת.</p>
+  <button class="btn ghost sm" data-act="exitShabbat" data-demo hidden>יציאה מתצוגת שבת (הדגמה)</button>
+</div></div>
+<main>
+  <!-- ===== בית ===== -->
+  <section class="view" id="v-home">
+    <h1>הסעות בהתנדבות למי שצריך</h1>
+    <p class="lead">עמותות ואנשים פרטיים מפרסמים נסיעה. נהגים מתנדבים מאומתים בוחרים נסיעה שמתאימה להם ולוקחים אותה. בלי טלפונים אינסופיים, בלי נסיעות שנופלות בין הכיסאות.</p>
+    <div class="hero">
+      <a class="choice ride" href="#need"><div class="ic">🙋</div><h3>צריך הסעה</h3><p>עמותה, דיור, או אדם פרטי. מפרסמים נסיעה חד-פעמית או קבועה, ורואים מי לוקח אותה.</p></a>
+      <a class="choice drive" href="#drive"><div class="ic">🚗</div><h3>אני נהג/ת מתנדב/ת</h3><p>נהגי מוניות ואזרחים. נרשמים, עוברים אימות, ובוחרים נסיעות מהלוח מתי שנוח.</p></a>
+    </div>
+    <div class="how">
+      <div><b>1. מפרסמים</b>מאיפה, לאן, מתי, ומה חשוב לדעת על הנוסע.</div>
+      <div><b>2. נהג מאומת לוקח</b>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</div>
+      <div><b>3. מתאמים ונוסעים</b>הנהג מתקשר לתיאום הכתובת, ויוצאים לדרך.</div>
+    </div>
+    <a class="small-link" href="#admin">ניהול</a>
+  </section>
+
+  <!-- ===== צריך הסעה ===== -->
+  <section class="view" id="v-need">
+    <div class="tabs">
+      <button class="tab on" data-act="ntab" data-tab="post">פרסום נסיעה</button>
+      <button class="tab" data-act="ntab" data-tab="mine">הנסיעות שלנו <span class="cnt" id="reqMineCnt" hidden>0</span></button>
+    </div>
+
+    <div id="nPost">
+    <h1>פרסום נסיעה</h1>
+    <p class="lead">הנסיעה תופיע בלוח הנהגים המאומתים. ב"הנסיעות שלנו" תראו מי לקח אותה.</p>
+    <div class="card" id="needWrap">
+      <form id="needForm" novalidate>
+        <div class="field full"><span class="lbl">מי מבקש/ת?</span>
+          <div class="seg">
+            <label><input type="radio" name="kind" value="org" checked>עמותה / מסגרת</label>
+            <label><input type="radio" name="kind" value="private">אדם פרטי</label>
+          </div></div>
+        <div class="grid" style="margin-top:14px">
+          <div class="field" data-org><label class="lbl req" for="nOrg">שם העמותה / המסגרת</label><input id="nOrg" name="orgName" type="text" maxlength="80" placeholder="למשל: עמותת בית חם"></div>
+          <div class="field"><label class="lbl req" for="nContact">שם איש/אשת קשר</label><input id="nContact" name="contactName" type="text" maxlength="80" autocomplete="name"></div>
+          <div class="field"><label class="lbl req" for="nPhone">טלפון לתיאום</label><input id="nPhone" name="phone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX" autocomplete="tel"></div>
+        </div>
+        <h3>מסלול</h3>
+        <div class="grid">
+          <div class="field"><label class="lbl req" for="nFromCity">עיר מוצא</label><input id="nFromCity" name="fromCity" type="text" maxlength="40"></div>
+          <div class="field"><label class="lbl" for="nFromPlace">נקודת איסוף (כללית)</label><input id="nFromPlace" name="fromPlace" type="text" maxlength="80" placeholder="למשל: דיור בקהילה, שכונת…"></div>
+          <div class="field"><label class="lbl req" for="nToCity">עיר יעד</label><input id="nToCity" name="toCity" type="text" maxlength="40"></div>
+          <div class="field"><label class="lbl" for="nToPlace">יעד (כללי)</label><input id="nToPlace" name="toPlace" type="text" maxlength="80" placeholder="למשל: בית ההורים, בית חולים…"></div>
+          <div class="field full"><p class="note" style="margin:0">🔒 אין צורך בכתובת מדויקת או בשם הנוסע. אלה עוברים ישירות לנהג המאומת, אחרי שלקח את הנסיעה.</p></div>
+        </div>
+        <h3>מתי</h3>
+        <div class="field full"><div class="seg">
+          <label><input type="radio" name="schedule" value="once" checked>פעם אחת</label>
+          <label><input type="radio" name="schedule" value="weekly">קבוע, כל שבוע</label>
+        </div></div>
+        <div class="grid" style="margin-top:14px">
+          <div class="field" data-once><label class="lbl req" for="nDate">תאריך</label><input id="nDate" name="date" type="date"></div>
+          <div class="field full" data-weekly hidden><span class="lbl req">באילו ימים</span><div class="checks" id="nDays"></div></div>
+          <div class="field"><label class="lbl req" for="nTime">שעת איסוף</label><input id="nTime" name="time" type="time"></div>
+          <div class="field" data-weekly hidden><label class="lbl" for="nUntil">עד תאריך (לא חובה)</label><input id="nUntil" name="until" type="date"></div>
+          <div class="field"><label class="lbl" for="nCount">מספר נוסעים</label><input id="nCount" name="passengers" type="number" min="1" max="8" value="1"></div>
+        </div>
+        <h3>מה חשוב שהנהג/ת ידע/תדע</h3>
+        <div class="checks" id="nNeeds">
+        </div>
+        <div class="cog" id="cogPanel" hidden>
+          <div class="cog-h">🧠 כמה פרטים שיעזרו לנהג/ת לשמור על הנוסע/ת</div>
+          <p class="hint" style="margin:0 0 10px">הפרטים האלה יוצגו רק לנהג/ת שלקח/ה את הנסיעה. בלי שמות ובלי פרטים מזהים.</p>
+          <div class="field full"><span class="lbl req">האם הנוסע/ת יכול/ה להישאר לבד ברכב לרגע?</span>
+            <div class="seg" style="margin-top:4px"><label><input type="radio" name="cogAlone" value="no" checked>לא, צריך השגחה רציפה</label><label><input type="radio" name="cogAlone" value="yes">כן</label></div></div>
+          <div class="grid" style="margin-top:12px">
+            <div class="field"><label class="lbl" for="cFrom">מי מוסר/ת את הנוסע/ת באיסוף?</label><input id="cFrom" name="cogFrom" type="text" maxlength="60" placeholder="למשל: מדריך/ה בדיור"></div>
+            <div class="field"><label class="lbl req" for="cTo">מי מקבל/ת את הנוסע/ת ביעד?</label><input id="cTo" name="cogTo" type="text" maxlength="60" placeholder="למשל: אחד ההורים, צוות המרפאה"></div>
+            <div class="field full"><label class="lbl" for="cComm">איך כדאי לתקשר</label><input id="cComm" name="cogComm" type="text" maxlength="160" placeholder="למשל: משפטים קצרים ורגועים, לא לגעת בלי לשאול"></div>
+            <div class="field full"><label class="lbl" for="cCalm">מה עלול להלחיץ, ומה מרגיע</label><input id="cCalm" name="cogCalm" type="text" maxlength="160" placeholder="למשל: רעש חזק מלחיץ, מוזיקה שקטה מרגיעה"></div>
+          </div>
+        </div>
+        <div class="field full" style="margin-top:14px"><label class="lbl" for="nNotes">הערות לנהג</label><textarea id="nNotes" name="notes" maxlength="400" placeholder="בלי פרטים מזהים. למשל: הנוסע לא מדבר, אוהב מוזיקה שקטה, צריך עזרה לעלות לרכב"></textarea></div>
+        <p class="err" id="needErr"></p>
+        <div class="actions"><button class="btn accent" type="submit">פרסום הנסיעה</button></div>
+      </form>
+    </div>
+    </div>
+
+    <div id="nMine" hidden>
+      <div id="reqGate">
+        <h1>הנסיעות שלנו</h1>
+        <p class="lead">הכניסו את מספר הטלפון שאיתו פרסמתם, ותראו מי לוקח כל נסיעה.</p>
+        <div class="demo-try" data-demo hidden><span>רוצים לראות איך זה נראה לעמותה?</span><button class="btn brand sm" data-act="demoOrg">צפייה כעמותה לדוגמה</button></div>
+        <div class="card narrow" style="margin-top:0">
+          <form id="reqPhoneForm" novalidate>
+            <div style="display:flex;gap:8px"><input id="reqPhoneIn" type="tel" inputmode="tel" placeholder="05X-XXXXXXX"><button class="btn brand" type="submit">הצגה</button></div>
+            <p class="err" id="reqPhoneErr"></p>
+          </form>
+        </div>
+      </div>
+      <div id="reqMine" hidden>
+        <div class="me"><h1 style="margin:0" id="reqTitle">הנסיעות שלנו</h1><button class="btn ghost sm" data-act="reqOut">מספר אחר</button></div>
+        <div class="list" id="reqList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== נהגים ===== -->
+  <section class="view" id="v-drive">
+    <div id="driverGate">
+      <h1>נהגים מתנדבים</h1>
+      <p class="lead">נרשמים בחצי דקה, עוברים אימות קצר, ובוחרים נסיעות מהלוח מתי שנוח.</p>
+      <div class="demo-try" data-demo hidden><span>רוצים לראות את הלוח כמו נהגת מאומתת?</span><button class="btn brand sm" data-act="demoDriver">כניסה כאורית (דוגמה)</button></div>
+      <div class="card">
+        <form id="regForm" novalidate>
+          <div class="grid">
+            <div class="field"><label class="lbl req" for="dName">שם מלא</label><input id="dName" name="name" type="text" maxlength="80" autocomplete="name"></div>
+            <div class="field"><label class="lbl req" for="dPhone">טלפון נייד</label><input id="dPhone" name="phone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX" autocomplete="tel"></div>
+            <div class="field"><label class="lbl req" for="dType">אני</label>
+              <select id="dType" name="type"><option value="taxi">נהג/ת מונית</option><option value="citizen">אזרח/ית עם רכב פרטי</option></select></div>
+            <div class="field"><label class="lbl req" for="dArea">אזור / ערים שנוח לי</label><input id="dArea" name="area" type="text" maxlength="80" placeholder="למשל: רמת גן, תל אביב"></div>
+          </div>
+          <p class="err" id="regErr"></p>
+          <div class="actions"><button class="btn brand" type="submit">הרשמה</button></div>
+        </form>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <form id="backForm" novalidate>
+          <span class="lbl">כבר נרשמת? הכנס/י את מספר הטלפון</span>
+          <div style="display:flex;gap:8px;margin-top:6px"><input id="backPhone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX"><button class="btn ghost" type="submit">כניסה</button></div>
+          <p class="err" id="backErr"></p>
+        </form>
+      </div>
+    </div>
+
+    <div id="board" hidden>
+      <div class="me">
+        <h1 style="margin:0">שלום <span id="meName"></span> 👋</h1>
+        <button class="btn ghost sm" data-act="driverOut">יציאה</button>
+      </div>
+      <div id="verifyBox"></div>
+      <div class="tabs">
+        <button class="tab on" data-act="dtab" data-tab="open">נסיעות פתוחות <span class="cnt" id="openCnt">0</span></button>
+        <button class="tab" data-act="dtab" data-tab="mine">שלי <span class="cnt" id="mineCnt">0</span></button>
+        <button class="tab" data-act="dtab" data-tab="rewards">🏆 הטבות</button>
+        <button class="tab" data-act="dtab" data-tab="profile">פרופיל</button>
+      </div>
+      <div id="openPane"><div class="toolbar" id="boardChips"></div><div class="list" id="openList"></div></div>
+      <div id="minePane" hidden><div class="list" id="mineList"></div></div>
+      <div id="rewardsPane" hidden></div>
+      <div id="profilePane" hidden><div class="card"><form id="profileForm" novalidate></form></div></div>
+    </div>
+  </section>
+
+  <!-- ===== ניהול ===== -->
+  <section class="view" id="v-admin">
+    <div id="loginBox" class="card narrow">
+      <h2>כניסת מנהלים</h2>
+      <form id="loginForm">
+        <div class="field"><label class="lbl" for="lEmail">אימייל</label><input id="lEmail" type="email" autocomplete="username"></div>
+        <div class="field" style="margin-top:10px"><label class="lbl" for="lPass">סיסמה</label><input id="lPass" type="password" autocomplete="current-password"></div>
+        <p class="err" id="loginErr"></p>
+        <button class="btn brand" type="submit" style="width:100%;justify-content:center">כניסה</button>
+        <p class="hint" id="loginHint"></p>
+      </form>
+    </div>
+    <div id="dash" hidden>
+      <div class="me"><h1 style="margin:0">ניהול</h1><button class="btn ghost sm" data-act="logout">יציאה</button></div>
+      <p class="err" id="dashErr"></p>
+      <div class="stats" id="stats"></div>
+      <div class="tabs">
+        <button class="tab on" data-act="atab" data-tab="reqs">נסיעות</button>
+        <button class="tab" data-act="atab" data-tab="drvs">נהגים</button>
+      </div>
+      <div id="aReqPane"><div class="toolbar"><input type="search" id="aSearch" placeholder="חיפוש"><span id="aChips" style="display:flex;gap:6px;flex-wrap:wrap"></span></div><div class="list" id="aReqList"></div></div>
+      <div id="aDrvPane" hidden><div class="toolbar" id="dChips"></div><div class="list" id="aDrvList"></div></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="redeemBg"><div class="modal" style="max-width:380px;text-align:center" id="redeemBody"></div></div>
+<div class="light" id="light" data-act="closeLight"><img id="lightImg" alt="מסמך"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
