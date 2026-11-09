@@ -271,6 +271,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
     </div>
 
     <div id="nPost">
+    <div class="note" id="adminAddNote" hidden style="margin-bottom:12px">✏️ מוסיפים נסיעה מדף הניהול. אחרי השמירה תחזרו לדף הניהול. <a href="#admin" data-act="cancelAdminAdd">ביטול</a></div>
     <h1>פרסום נסיעה</h1>
     <p class="lead">הנסיעה תופיע בלוח הנהגים המאומתים. ב"הנסיעות שלנו" תראו מי לקח אותה.</p>
     <div class="card" id="needWrap">
@@ -409,7 +410,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
       </form>
     </div>
     <div id="dash" hidden>
-      <div class="me"><h1 style="margin:0">ניהול מנהלי עמותות ומערך הסעות</h1><button class="btn ghost sm" data-act="logout">יציאה</button></div>
+      <div class="me"><h1 style="margin:0">ניהול מנהלי עמותות ומערך הסעות</h1><div style="display:flex;gap:8px"><button class="btn brand sm" data-act="adminAdd">➕ הוספת נסיעה</button><button class="btn ghost sm" data-act="logout">יציאה</button></div></div>
       <p class="err" id="dashErr"></p>
       <div class="stats" id="stats"></div>
       <div class="tabs">
@@ -422,6 +423,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
   </section>
 </main>
 <div class="toast" id="toast"></div>
+<div class="modal-bg" id="editBg"><div class="modal" style="max-width:640px;max-height:90vh;overflow:auto" id="editBody"></div></div>
 <div class="modal-bg" id="redeemBg"><div class="modal" style="max-width:380px;text-align:center" id="redeemBody"></div></div>
 <div class="light" id="light" data-act="closeLight"><img id="lightImg" alt="מסמך"></div>
 

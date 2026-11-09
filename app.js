@@ -250,8 +250,9 @@ async function submitNeed(e){
   const btn=f.querySelector('[type=submit]');btn.disabled=true;
   try{
     await api.add('requests',r);
-    reqPhone=r.phone;lsSet(REQ_KEY,reqPhone);
     f.reset();needDefaults();
+    if(adminAdding){adminAdding=false;$('#adminAddNote').hidden=true;toast('הנסיעה נוספה ✅');location.hash='#admin';btn.disabled=false;return;}
+    reqPhone=r.phone;lsSet(REQ_KEY,reqPhone);
     toast('הנסיעה פורסמה ✅ כאן תראו מי לוקח אותה');
     setTabs('ntab','mine',{post:'#nPost',mine:'#nMine'});renderReqMine();window.scrollTo(0,0);
   }catch(x){console.error(x);err.textContent='השליחה נכשלה. נסו שוב בעוד רגע.';}
@@ -635,6 +636,81 @@ function renderCommunity(){
   <p class="hint" style="text-align:center;margin-top:18px">נהגים מופיעים כאן רק בהסכמתם, עם שם פרטי ועיר בלבד. בגרסת ההדגמה התוכן לדוגמה.</p>`;
 }
 
+
+/* ===== עריכת נסיעה (ניהול) ===== */
+let adminAdding=false,editId=null;
+function openEdit(id){
+  const r=requests.find(x=>x.id===id);if(!r)return;editId=id;
+  const c=r.cog||{};const f=(n,l,v,extra='')=>`<div class="field"><label class="lbl">${l}</label><input name="${n}" value="${esc(v||'')}" ${extra}></div>`;
+  $('#editBody').innerHTML=`<div class="me" style="margin-bottom:6px"><h2 style="margin:0">עריכת נסיעה</h2><button class="btn ghost sm" type="button" data-act="closeEdit">סגירה</button></div>
+  <form id="editForm" novalidate>
+    <div class="seg"><label><input type="radio" name="kind" value="org" ${r.kind==='org'?'checked':''}>עמותה / מסגרת</label><label><input type="radio" name="kind" value="private" ${r.kind!=='org'?'checked':''}>אדם פרטי</label></div>
+    <div class="grid" style="margin-top:12px">
+      ${f('orgName','שם העמותה',r.orgName,'type="text" maxlength="80"')}
+      ${f('contactName','איש/אשת קשר',r.contactName,'type="text" maxlength="80"')}
+      ${f('phone','טלפון לתיאום',r.phone,'type="tel"')}
+    </div>
+    <h3>מסלול</h3>
+    <div class="grid">
+      ${f('fromCity','עיר מוצא',r.fromCity,'type="text" maxlength="40"')}
+      ${f('fromPlace','נקודת איסוף (כללית)',r.fromPlace,'type="text" maxlength="80"')}
+      ${f('toCity','עיר יעד',r.toCity,'type="text" maxlength="40"')}
+      ${f('toPlace','יעד (כללי)',r.toPlace,'type="text" maxlength="80"')}
+    </div>
+    <h3>מתי</h3>
+    <div class="seg"><label><input type="radio" name="schedule" value="once" ${r.schedule!=='weekly'?'checked':''}>פעם אחת</label><label><input type="radio" name="schedule" value="weekly" ${r.schedule==='weekly'?'checked':''}>קבוע, כל שבוע</label></div>
+    <div class="grid" style="margin-top:12px">
+      <div class="field" data-e-once><label class="lbl">תאריך</label><input type="date" name="date" value="${esc(r.date||'')}"></div>
+      <div class="field full" data-e-weekly><span class="lbl">ימים</span><div class="checks">${DAYS.slice(0,6).map((d,i)=>`<label><input type="checkbox" name="days" value="${i}" ${(r.days||[]).includes(String(i))?'checked':''}>${d}׳</label>`).join('')}</div></div>
+      ${f('time','שעת איסוף',r.time,'type="time"')}
+      <div class="field" data-e-weekly><label class="lbl">עד תאריך</label><input type="date" name="until" value="${esc(r.until||'')}"></div>
+      ${f('passengers','מספר נוסעים',r.passengers||1,'type="number" min="1" max="8"')}
+    </div>
+    <h3>צרכים</h3>
+    <div class="checks">${NEEDS.map(n=>`<label><input type="checkbox" name="needs" value="${n.k}" ${hasNeed(r,n.k)?'checked':''}>${n.i} ${n.t}</label>`).join('')}</div>
+    <div class="cog" data-e-cog>
+      <div class="cog-h">🧠 הנחיות לנהג</div>
+      <div class="seg" style="margin-top:6px"><label><input type="radio" name="cogAlone" value="no" ${c.alone!=='yes'?'checked':''}>לא להשאיר לבד</label><label><input type="radio" name="cogAlone" value="yes" ${c.alone==='yes'?'checked':''}>אפשר להשאיר לבד לרגע</label></div>
+      <div class="grid" style="margin-top:10px">
+        ${f('cogFrom','מי מוסר באיסוף',c.from,'type="text" maxlength="60"')}
+        ${f('cogTo','מי מקבל ביעד',c.to,'type="text" maxlength="60"')}
+        ${f('cogComm','איך לתקשר',c.comm,'type="text" maxlength="160"')}
+        ${f('cogCalm','מה מלחיץ ומה מרגיע',c.calm,'type="text" maxlength="160"')}
+      </div>
+    </div>
+    <div class="field full" style="margin-top:12px"><label class="lbl">הערות לנהג</label><textarea name="notes" maxlength="400">${esc(r.notes||'')}</textarea></div>
+    <p class="err" id="editErr"></p>
+    <div class="actions"><button class="btn brand" type="submit">שמירת שינויים</button><button class="btn ghost" type="button" data-act="closeEdit">ביטול</button></div>
+  </form>`;
+  syncEdit();$('#editBg').classList.add('open');
+}
+function syncEdit(){
+  const f=$('#editForm');if(!f)return;
+  const sched=f.schedule.value,needs=[...f.querySelectorAll('input[name=needs]:checked')].map(x=>x.value);
+  f.querySelectorAll('[data-e-once]').forEach(e=>e.hidden=sched!=='once');
+  f.querySelectorAll('[data-e-weekly]').forEach(e=>e.hidden=sched!=='weekly');
+  f.querySelector('[data-e-cog]').hidden=!NEEDS.some(n=>n.cog&&needs.includes(n.k));
+  f.orgName.closest('.field').hidden=f.kind.value!=='org';
+}
+const closeEdit=()=>{$('#editBg').classList.remove('open');editId=null;};
+async function saveEdit(e){
+  e.preventDefault();const f=e.target,fd=new FormData(f),err=$('#editErr');err.textContent='';
+  const s=k=>String(fd.get(k)||'').trim();
+  const u={kind:s('kind'),orgName:s('orgName'),contactName:s('contactName'),phone:cleanPhone(s('phone')),fromCity:s('fromCity'),fromPlace:s('fromPlace'),
+    toCity:s('toCity'),toPlace:s('toPlace'),schedule:s('schedule'),date:s('date'),days:fd.getAll('days'),until:s('until'),time:s('time'),
+    passengers:Math.max(1,parseInt(fd.get('passengers'),10)||1),needs:fd.getAll('needs'),notes:s('notes')};
+  if(u.kind==='org'&&!u.orgName)return err.textContent='נא למלא שם עמותה.';
+  if(!u.contactName||!validPhone(u.phone))return err.textContent='נא לבדוק את איש הקשר והטלפון.';
+  if(!u.fromCity||!u.toCity||!u.time)return err.textContent='נא למלא עיר מוצא, עיר יעד ושעה.';
+  if(u.schedule==='once'){if(!u.date)return err.textContent='נא לבחור תאריך.';if(new Date(u.date+'T12:00').getDay()===6)return err.textContent='🕯️ אי אפשר לקבוע נסיעה בשבת.';u.days=[];u.until='';}
+  else{if(!u.days.length)return err.textContent='נא לבחור לפחות יום אחד.';u.date='';}
+  if(NEEDS.some(n=>n.cog&&u.needs.includes(n.k))){if(!s('cogTo'))return err.textContent='נא לכתוב מי מקבל/ת את הנוסע/ת ביעד.';
+    u.cog={alone:s('cogAlone')||'no',from:s('cogFrom'),to:s('cogTo'),comm:s('cogComm'),calm:s('cogCalm')};}
+  for(const k of ['wheelchair','escort','returnTrip','patience'])u[k]=false;
+  try{await api.update('requests',editId,u);closeEdit();toast('השינויים נשמרו ✓');}
+  catch(x){console.error(x);err.textContent='השמירה נכשלה. נסו שוב.';}
+}
+
 /* ===== ניהול ===== */
 let adminOn=false,aTab='reqs',aFilter='open',aQuery='',drvUnsub=null,dFilter='pending';
 function startDash(){
@@ -673,6 +749,7 @@ function renderAdmin(){
     ${occ.length&&(r.status==='open'||r.status==='taken')?`<div class="occ">${occ.map(d=>{const dr=driverFor(r,d);return dr?`<div class="got"><span>${fmtDate(d)}</span><span>✓ ${esc(dr.driverName)}${dr.cover?' (חד-פעמי)':''}</span></div>`:`<div class="miss"><span>${fmtDate(d)}</span><span>⚠️ אין נהג</span></div>`;}).join('')}</div>`:''}
     ${r.notes?`<div class="meta" style="margin-top:6px">💬 ${esc(r.notes)}</div>`:''}
     <div class="actions">
+      <button class="btn ghost sm" data-act="aedit" data-id="${r.id}">✏️ עריכה</button>
       ${r.status==='open'||r.status==='taken'?`<button class="btn danger sm" data-act="acancel" data-id="${r.id}">ביטול</button>`:`<button class="btn ghost sm" data-act="areopen" data-id="${r.id}">החזרה ללוח</button>`}
       ${r.status==='taken'?`<button class="btn ghost sm" data-act="release" data-id="${r.id}">שחרור הנהג הקבוע</button>`:''}
     </div></article>`;}).join(''):'<div class="empty">אין נסיעות בסינון הזה.</div>';
@@ -742,6 +819,10 @@ document.addEventListener('click',async e=>{
     case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane'});break;
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
     case 'dfilter':dFilter=el.dataset.f;renderAdmin();break;
+    case 'adminAdd':adminAdding=true;location.hash='#need';setTabs('ntab','post',{post:'#nPost',mine:'#nMine'});$('#adminAddNote').hidden=false;break;
+    case 'cancelAdminAdd':adminAdding=false;$('#adminAddNote').hidden=true;break;
+    case 'aedit':openEdit(id);break;
+    case 'closeEdit':closeEdit();break;
     case 'acancel':if(!armed(el,'לבטל? לחצו שוב'))return;await api.update('requests',id,{status:'cancelled'});break;
     case 'areopen':await api.update('requests',id,{...RELEASE});break;
     case 'toggleDriver':{const d=drivers.find(x=>x.id===id);await api.update('drivers',id,{active:!d.active});break;}
@@ -767,6 +848,9 @@ document.addEventListener('change',e=>{
 });
 $('#needForm').addEventListener('change',e=>{if(['kind','schedule','needs'].includes(e.target.name))syncNeedForm();});
 $('#needForm').addEventListener('submit',submitNeed);
+document.addEventListener('submit',e=>{if(e.target.id==='editForm')saveEdit(e);});
+document.addEventListener('change',e=>{if(e.target.closest&&e.target.closest('#editForm'))syncEdit();});
+$('#editBg').addEventListener('click',e=>{if(e.target.id==='editBg')closeEdit();});
 $('#regForm').addEventListener('submit',submitReg);
 $('#backForm').addEventListener('submit',submitBack);
 $('#profileForm').addEventListener('submit',submitProfile);
