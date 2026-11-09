@@ -186,13 +186,19 @@ function seed(){
     p2:{rideId:'r6',by:'requester',byName:'יוסי, מעון נווה',aboutDriverId:'d4',aboutDriverName:'משה דהן',type:'driver_late',text:'איחור של 20 דקות, הדייר נלחץ.',at:now-2*864e5,status:'open'},
     p3:{rideId:'r2',by:'driver',byName:'אבי פרץ',type:'no_show_passenger',text:'המתנתי 15 דקות והנוסע לא ירד. ניסיתי להתקשר בלי מענה.',at:now-1*864e5,status:'open'}};
   out.notifs={};
+  const chk=(a,b,c)=>({registry:a,contact:b,agreement:c});
+  out.orgs={
+    o1:{name:'עמותת בית חם',type:'nonprofit',regNum:'580000001',contactName:'שירה כהן',role:'רכזת דיור',phone:'03-5551234',email:'shira@example.org',ridesPerMonth:'40',status:'approved',checks:chk(true,true,true),at:now-4e9},
+    o2:{name:'דיור מוגן אופק',type:'nonprofit',regNum:'580000002',contactName:'דנה לוי',role:'מנהלת',phone:'03-6667788',email:'dana@example.org',ridesPerMonth:'20',status:'approved',checks:chk(true,true,true),at:now-3e9},
+    o3:{name:'מעון נווה',type:'nonprofit',regNum:'580000003',contactName:'יוסי אברהם',role:'רכז',phone:'02-5554433',email:'yossi@example.org',ridesPerMonth:'15',status:'contacted',checks:chk(true,true,false),note:'דיברנו, שולחים הסכם',at:now-6e8},
+    o4:{name:'מוניות השרון (דוגמה)',type:'company',regNum:'510000004',contactName:'רוני',role:'בעלים',phone:'09-7776655',email:'roni@example.com',ridesPerMonth:'',message:'רוצים לתרום שעות נסיעה של הנהגים שלנו בימים שקטים',status:'pending',checks:chk(false,false,false),at:now-9e7}};
   return out;
 }
 
 /* ===== שכבת נתונים ===== */
 function demoApi(){
   const KEY='rides-v10-demo';let data=lsGet(KEY);if(!data||!data.requests)data=seed();
-  const subs={drivers:[],requests:[],reports:[],notifs:[]},authSubs=[];let user=null;
+  const subs={drivers:[],requests:[],reports:[],notifs:[],orgs:[]},authSubs=[];let user=null;
   const col=c=>(data[c]=data[c]||{});
   const snap=c=>Object.entries(col(c)).map(([id,v])=>({id,...v}));
   const save=()=>{lsSet(KEY,data);for(const c in subs)subs[c].forEach(cb=>cb(snap(c)));};
@@ -232,9 +238,9 @@ async function firebaseApi(){
 let api;
 
 /* ===== מצב משותף ===== */
-let requests=[],drivers=[],reqUnsub=null,reports=[],notifs=[],allDrivers=[],extraUnsub=null;
+let orgs=[],requests=[],drivers=[],reqUnsub=null,reports=[],notifs=[],allDrivers=[],extraUnsub=null;
 function ensureRequests(){
-  if(!extraUnsub&&api){extraUnsub=[api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
+  if(!extraUnsub&&api){extraUnsub=[api.listen('orgs',l=>{orgs=l;renderAdmin();renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
   if(reqUnsub) return;
   reqUnsub=api.listen('requests',l=>{requests=l;renderBell();renderBoard();if(location.hash==='#community')renderCommunity();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
 }
@@ -503,7 +509,7 @@ function myItems(){
   return out.sort((a,b)=>((a.date||'9')+a.r.time).localeCompare((b.date||'9')+b.r.time));
 }
 function needsTags(r){
-  return [r.schedule==='weekly'?'<span class="tag weekly">🔁 קבוע</span>':'',r.kind==='org'?`<span class="tag org">${esc(r.orgName)}</span>`:'<span class="tag">אדם פרטי</span>',
+  return [r.schedule==='weekly'?'<span class="tag weekly">🔁 קבוע</span>':'',r.kind==='org'?`<span class="tag org">${esc(r.orgName)}${orgVerified(r.orgName)?' ✓':''}</span>`:'<span class="tag">אדם פרטי</span>',
     ...NEEDS.filter(n=>hasNeed(r,n.k)).map(n=>`<span class="tag ${n.hot?'need':''}">${n.i} ${n.t}</span>`),
     `<span class="tag">${r.passengers||1} נוסעים</span>`].join('');
 }
@@ -769,20 +775,86 @@ function renderAccount(){
   const who=me?String(me.name||'').split(' ')[0]:reqPhone?'העמותה שלי':adminOn?'ניהול':'';
   $('#acctLabel').textContent=who||'כניסה';$('#acctTab').textContent=who||'כניסה';
   const s=$('#authStrip');if(!s)return;
-  s.innerHTML=me||reqPhone||adminOn?`<div class="auth-in">👋 שלום ${esc(who)}! ${me?'<a href="#drive">ללוח הנסיעות ←</a>':reqPhone?'<a href="#need" data-act="goReqMine">לנסיעות שלנו ←</a>':'<a href="#admin">לניהול ←</a>'}</div>`
-    :`<b>כבר רשומים או רוצים להצטרף?</b><div class="actions"><button class="btn brand" data-act="account">👤 כניסה / הרשמה</button></div>`;
+  s.innerHTML=me||reqPhone||adminOn?`<div class="auth-in">👋 ${me?`שלום ${esc(who)}!`:reqPhone?'שלום!':'מחובר/ת לניהול.'} ${me?'<a href="#drive">ללוח הנסיעות ←</a>':reqPhone?'<a href="#need" data-act="goReqMine">לנסיעות שלנו ←</a>':'<a href="#admin">לניהול ←</a>'}</div>`
+    :`<b>כבר רשומים או רוצים להצטרף?</b><div class="actions"><button class="btn brand" data-act="account">👤 כניסה / הרשמה</button><button class="btn ghost" data-act="orgApply">🏢 הצטרפות כארגון</button></div>`;
 }
 function accountDlg(){
-  const rows=[];
-  if(me)rows.push(`<div class="acct-row on"><span>🚗</span><div><b>${esc(me.name)}</b><div class="hint">מחובר/ת כנהג/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
-  else rows.push(`<a class="acct-row" href="#drive" data-act="closeDlg"><span>🚗</span><div><b>אני נהג/ת מתנדב/ת</b><div class="hint">כניסה עם טלפון, או הרשמה ואימות</div></div><span class="hint">←</span></a>`);
-  if(reqPhone)rows.push(`<div class="acct-row on"><span>🙋</span><div><b>הנסיעות שלנו</b><div class="hint" dir="ltr" style="text-align:right">${esc(reqPhone)}</div></div><button class="btn ghost sm" data-act="goReqMine">פתיחה</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
-  else rows.push(`<button class="acct-row" data-act="goReqMine"><span>🙋</span><div><b>עמותה או אדם פרטי</b><div class="hint">צפייה בנסיעות שפרסמתם, לפי מספר טלפון</div></div><span class="hint">←</span></button>`);
-  rows.push(adminOn?`<div class="acct-row on"><span>🛠️</span><div><b>צוות ניהול</b><div class="hint">מחובר/ת</div></div><a class="btn ghost sm" href="#admin" data-act="closeDlg">לניהול</a><button class="btn ghost sm" data-act="logout">יציאה</button></div>`
-    :`<a class="acct-row" href="#admin" data-act="closeDlg"><span>🛠️</span><div><b>צוות ניהול</b><div class="hint">מנהלי עמותות ומערך ההסעות</div></div><span class="hint">←</span></a>`);
+  const priv=[],org=[];
+  if(me)priv.push(`<div class="acct-row on"><span>🚗</span><div><b>${esc(me.name)}</b><div class="hint">מחובר/ת כנהג/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
+  else priv.push(`<a class="acct-row" href="#drive" data-act="closeDlg"><span>🚗</span><div><b>נהג/ת מתנדב/ת</b><div class="hint">נהגי מוניות ואזרחים. נרשמים ומעלים מסמכים לבד</div></div><span class="hint">←</span></a>`);
+  if(reqPhone)priv.push(`<div class="acct-row on"><span>🙋</span><div><b>הנסיעות שלי</b><div class="hint" dir="ltr" style="text-align:right">${esc(reqPhone)}</div></div><button class="btn ghost sm" data-act="goReqMine">פתיחה</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
+  else priv.push(`<button class="acct-row" data-act="goReqMine"><span>🙋</span><div><b>צריך/ה הסעה (אדם פרטי)</b><div class="hint">פרסום נסיעה וצפייה בה לפי מספר טלפון</div></div><span class="hint">←</span></button>`);
+  org.push(`<button class="acct-row" data-act="orgApply"><span>🏢</span><div><b>הצטרפות כארגון</b><div class="hint">עמותה, דיור מוגן או מסגרת, חברת הסעות, שותף או תורם. נחזור אליכם לשיחת היכרות ואימות</div></div><span class="hint">←</span></button>`);
+  org.push(`<button class="acct-row" data-act="goReqMine"><span>🔑</span><div><b>ארגון מאושר: כניסה</b><div class="hint">לנסיעות של הארגון (בגרסה המלאה: חשבון לכל רכז/ת)</div></div><span class="hint">←</span></button>`);
+  const adm=adminOn?`<div class="acct-row on"><span>🛠️</span><div><b>צוות נוסעים ביחד</b><div class="hint">מחובר/ת</div></div><a class="btn ghost sm" href="#admin" data-act="closeDlg">לניהול</a><button class="btn ghost sm" data-act="logout">יציאה</button></div>`
+    :`<a class="acct-row slim" href="#admin" data-act="closeDlg"><span>🛠️</span><div><b>צוות נוסעים ביחד</b></div><span class="hint">←</span></a>`;
   const install=isStandalone()?'':installEvt?`<button class="btn alt" data-act="install" style="width:100%;justify-content:center">📲 התקנה כאפליקציה בטלפון</button>`
     :`<p class="hint" style="text-align:center">📲 להוספה למסך הבית: באייפון "שיתוף" ואז "הוספה למסך הבית". באנדרואיד: תפריט ⋮ ואז "התקנת אפליקציה".</p>`;
-  openDlg(`<h2 style="margin-top:0">כניסה והרשמה</h2><p class="hint" style="margin-top:-6px">בגרסה המלאה הכניסה תהיה עם קוד שנשלח ב-SMS.</p><div class="acct-list">${rows.join('')}</div>${install}<div class="actions" style="justify-content:center"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
+  openDlg(`<h2 style="margin-top:0">כניסה והרשמה</h2>
+    <div class="acct-sec">👤 אנשים פרטיים <span class="hint">· הרשמה ואימות עצמאיים</span></div><div class="acct-list">${priv.join('')}</div>
+    <div class="acct-sec">🏢 ארגונים <span class="hint">· הצטרפות דרך שיחה ואימות מול הצוות</span></div><div class="acct-list">${org.join('')}</div>
+    <div class="acct-list">${adm}</div>${install}
+    <p class="hint" style="text-align:center;margin:4px 0 0">בגרסה המלאה הכניסה תהיה עם קוד שנשלח ב-SMS.</p>
+    <div class="actions" style="justify-content:center"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
+}
+const ORG_TYPES={nonprofit:'עמותה / דיור מוגן / מסגרת',company:'חברת הסעות או מוניות',partner:'שותף להטבות לנהגים',donor:'תורם / קרן / חברה תומכת'};
+const orgVerified=n=>orgs.some(o=>o.status==='approved'&&o.name===n);
+function orgApplyDlg(){
+  openDlg(`<h2 style="margin-top:0">🏢 הצטרפות כארגון</h2>
+    <p class="hint" style="margin-top:-6px">ארגונים מצטרפים אחרי שיחת היכרות קצרה ואימות. ממלאים כאן, ואנחנו חוזרים אליכם תוך כמה ימים.</p>
+    <form id="orgForm" novalidate>
+      <div class="field"><span class="lbl req">סוג הארגון</span><div class="checks" style="flex-direction:column;align-items:stretch">${Object.entries(ORG_TYPES).map(([k,v],i)=>`<label style="border-radius:10px"><input type="radio" name="type" value="${k}" ${i===0?'checked':''}>${v}</label>`).join('')}</div></div>
+      <div class="grid" style="margin-top:10px">
+        <div class="field"><label class="lbl req">שם הארגון</label><input name="name" type="text" maxlength="80"></div>
+        <div class="field"><label class="lbl req" id="regLbl">מספר עמותה / ח.פ.</label><input name="regNum" type="text" inputmode="numeric" maxlength="12" placeholder="9 ספרות"></div>
+        <div class="field"><label class="lbl req">איש/אשת קשר</label><input name="contactName" type="text" maxlength="60"></div>
+        <div class="field"><label class="lbl">תפקיד</label><input name="role" type="text" maxlength="60" placeholder="למשל: רכזת דיור"></div>
+        <div class="field"><label class="lbl req">טלפון</label><input name="phone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX"></div>
+        <div class="field"><label class="lbl req">אימייל</label><input name="email" type="email" dir="ltr"></div>
+        <div class="field"><label class="lbl">כמה נסיעות בחודש בערך?</label><input name="ridesPerMonth" type="text" inputmode="numeric" maxlength="5"></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label class="lbl">ספרו לנו בקצרה</label><textarea name="message" maxlength="500" placeholder="מי האוכלוסייה, לאן צריך להגיע, מה חשוב לכם"></textarea></div>
+      <div class="checks" style="margin-top:10px"><label style="border-radius:12px;align-items:flex-start"><input type="checkbox" name="terms" value="1" style="margin-top:5px"><span>קראתי ומסכים/ה ל<a href="#terms" data-act="closeDlg">תנאי השימוש</a>, ומאשר/ת שאני מוסמך/ת לפנות בשם הארגון.</span></label></div>
+      <p class="hint">מה נבדוק: רישום ברשם העמותות או ברשם החברות, אישור ניהול תקין לעמותות, שיחה עם איש הקשר, והסכם שיתוף פעולה קצר.</p>
+      <p class="err" id="orgErr"></p>
+      <div class="actions"><button class="btn brand" type="submit">שליחת בקשה</button><button class="btn ghost" type="button" data-act="closeDlg">ביטול</button></div>
+    </form>`);
+}
+async function submitOrg(e){
+  e.preventDefault();const f=e.target,fd=new FormData(f),s=k=>String(fd.get(k)||'').trim(),err=$('#orgErr');
+  const o={type:s('type'),name:s('name'),regNum:s('regNum').replace(/\D/g,''),contactName:s('contactName'),role:s('role'),phone:s('phone'),email:s('email'),ridesPerMonth:s('ridesPerMonth'),message:s('message'),status:'pending',checks:{registry:false,contact:false,agreement:false},at:Date.now()};
+  if(!o.name)return err.textContent='נא למלא את שם הארגון.';
+  if(o.regNum.length!==9)return err.textContent='מספר עמותה או ח.פ. הוא 9 ספרות.';
+  if(!o.contactName)return err.textContent='נא למלא איש/אשת קשר.';
+  if(!validPhone(o.phone))return err.textContent='מספר הטלפון לא תקין.';
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(o.email))return err.textContent='כתובת האימייל לא תקינה.';
+  if(fd.get('terms')!=='1')return err.textContent='נא לאשר את התנאים.';
+  await api.add('orgs',o);notify('admin',`🏢 בקשת הצטרפות חדשה: ${o.name} (${ORG_TYPES[o.type]})`,'#admin');
+  openDlg(`<h2 style="margin-top:0">✅ הבקשה התקבלה</h2><p>תודה! צוות נוסעים ביחד יחזור ל${esc(o.contactName)} בטלפון או במייל לשיחת היכרות קצרה.</p><p class="hint">אחרי האימות תקבלו גישה לפרסום נסיעות בשם הארגון, והנסיעות שלכם יסומנו ✓ ארגון מאומת.</p><div class="actions"><button class="btn brand" data-act="closeDlg">סגירה</button></div>`);
+}
+const OSTAT={pending:'חדשה',contacted:'בתהליך',approved:'מאושר',rejected:'נדחה'};
+let oFilter='pending';
+function renderOrgs(){
+  if(!adminOn||!$('#aOrgList'))return;
+  const waiting=orgs.filter(o=>o.status==='pending'||o.status==='contacted').length;
+  const c=$('#orgCnt');c.hidden=!waiting;c.textContent=waiting;
+  const OF={pending:`ממתינים (${waiting})`,approved:'מאושרים',rejected:'נדחו',all:'הכל'};
+  $('#oChips').innerHTML=Object.entries(OF).map(([k,v])=>`<button class="chip ${k===oFilter?'on':''}" data-act="ofilter" data-f="${k}">${v}</button>`).join('');
+  const l=orgs.filter(o=>oFilter==='all'||o.status===oFilter||(oFilter==='pending'&&o.status==='contacted')).sort((a,b)=>b.at-a.at);
+  const CK={registry:'נבדק ברשם (עמותות / חברות)',contact:'שיחת היכרות התקיימה',agreement:'הסכם שיתוף פעולה נחתם'};
+  $('#aOrgList').innerHTML=l.length?l.map(o=>{const ck=o.checks||{};const all=Object.keys(CK).every(k=>ck[k]);
+    const regUrl=o.type==='nonprofit'?`https://www.guidestar.org.il/organization/${encodeURIComponent(o.regNum)}`:`https://ica.justice.gov.il/GenericCorporarionInfo/SearchCorporation?unit=8`;
+    return `<article class="item ${o.status==='rejected'?'inactive':''}">
+    <div class="item-top"><span class="when">${esc(o.name)} <span class="tag">${ORG_TYPES[o.type]||''}</span></span><span class="badge ${o.status==='approved'?'s-done':o.status==='rejected'?'s-cancelled':'s-open'}">${OSTAT[o.status]}</span></div>
+    <div class="meta" style="margin-top:6px"><span>${o.type==='nonprofit'?'מס׳ עמותה':'ח.פ.'}: <a href="${regUrl}" target="_blank" rel="noopener" dir="ltr">${esc(o.regNum)}</a></span>
+      <span>${esc(o.contactName)}${o.role?` (${esc(o.role)})`:''} · <a dir="ltr" href="tel:${esc(cleanPhone(o.phone))}">${esc(o.phone)}</a> · <a dir="ltr" href="mailto:${esc(o.email)}">${esc(o.email)}</a></span>
+      ${o.ridesPerMonth?`<span>כ-${esc(o.ridesPerMonth)} נסיעות בחודש</span>`:''}
+      ${o.status==='approved'?`<button class="linkbtn" data-act="filterQ" data-q="${esc(o.name)}">לנסיעות של הארגון ←</button>`:''}</div>
+    ${o.message?`<div class="meta" style="margin-top:6px">💬 ${esc(o.message)}</div>`:''}
+    <div class="org-checks">${Object.entries(CK).map(([k,v])=>`<label><input type="checkbox" data-act="orgCheck" data-id="${o.id}" data-k="${k}" ${ck[k]?'checked':''} ${o.status==='approved'?'disabled':''}> ${v}</label>`).join('')}</div>
+    ${o.note?`<div class="hint">📝 ${esc(o.note)}</div>`:''}
+    <div class="actions">${o.status==='approved'?`<button class="btn ghost sm" data-act="orgSet" data-id="${o.id}" data-s="contacted">ביטול אישור</button>`:o.status==='rejected'?`<button class="btn ghost sm" data-act="orgSet" data-id="${o.id}" data-s="pending">החזרה לבדיקה</button>`
+      :`${o.status==='pending'?`<button class="btn ghost sm" data-act="orgSet" data-id="${o.id}" data-s="contacted">📞 סימון: יצרנו קשר</button>`:''}<button class="btn accent sm" data-act="orgSet" data-id="${o.id}" data-s="approved" ${all?'':'disabled title="צריך לסמן את כל הבדיקות"'}>✓ אישור הארגון</button><button class="btn danger sm" data-act="orgSet" data-id="${o.id}" data-s="rejected">דחייה</button>`}</div></article>`;}).join(''):'<div class="empty">אין ארגונים בסינון הזה.</div>';
 }
 
 /* ===== עריכת נסיעה (ניהול) ===== */
@@ -880,7 +952,7 @@ function renderAdmin(){
   const tile=(go,n,t,hot)=>`<button class="stat ${hot?'hot':''}" data-act="statnav" data-go="${go}"><div class="n">${n}</div><div class="t">${t} ←</div></button>`;
   $('#stats').innerHTML=tile('missing',uncovered,'נסיעה קרובה בלי נהג',uncovered)+tile('seeking',live.filter(r=>r.schedule==='weekly'&&r.status==='open').length,'קבועות שמחפשות נהג קבוע')
     +tile('approved',drivers.filter(d=>d.active&&vs(d)==='approved').length,'נהגים מאומתים')+tile('pending',drivers.filter(d=>vs(d)==='pending').length,'ממתינים לאימות',drivers.some(d=>vs(d)==='pending'))
-    +tile('reports',openReps,'דיווחים פתוחים',openReps)+tile('flagged',flagged,'נהגים לבדיקה',flagged);
+    +tile('orgs',orgs.filter(o=>o.status==='pending'||o.status==='contacted').length,'ארגונים ממתינים',orgs.some(o=>o.status==='pending'))+tile('reports',openReps,'דיווחים פתוחים',openReps)+tile('flagged',flagged,'נהגים לבדיקה',flagged);
   $('#urgentBox').innerHTML=urgent.length?`<button class="urgent" data-act="statnav" data-go="urgent">🚨 <b>${urgent.length===1?'נסיעה אחת':urgent.length+' נסיעות'} ב-24 השעות הקרובות עדיין בלי נהג.</b> לחצו לרשימה ←</button>`:'';
   const rc=$('#repCnt');rc.hidden=!openReps;rc.textContent=openReps;
   const F={open:'פעילות',urgent:'דחופות',missing:'בלי נהג',seeking:'מחפשות נהג קבוע',expired:'עבר המועד',done:'בוצעו',cancelled:'בוטלו',all:'הכל'};
@@ -901,7 +973,7 @@ function renderAdmin(){
     return `<article class="item">
     <div class="item-top"><span class="when">${whenText(r)}</span><span class="badge s-${r.status}">${r.schedule==='weekly'&&r.status==='open'?'מחפשת נהג קבוע':STATUS[r.status]}</span></div>
     ${routeHtml(r)}<div class="meta" style="gap:6px">${needsTags(r)}</div>
-    <div class="meta" style="margin-top:6px"><span>מבקש/ת: <b>${esc(r.contactName)}</b> · ${r.kind==='org'?`<button class="linkbtn" data-act="filterQ" data-q="${esc(r.orgName)}">${esc(r.orgName)}</button>`:'אדם פרטי'} · <a dir="ltr" href="tel:${esc(cleanPhone(r.phone))}">${esc(r.phone)}</a></span>
+    <div class="meta" style="margin-top:6px"><span>מבקש/ת: <b>${esc(r.contactName)}</b> · ${r.kind==='org'?`<button class="linkbtn" data-act="filterQ" data-q="${esc(r.orgName)}">${esc(r.orgName)}</button>${orgVerified(r.orgName)?' <span class="tag">✓ ארגון מאומת</span>':' <span class="tag need">ארגון לא מאומת</span>'}`:'אדם פרטי'} · <a dir="ltr" href="tel:${esc(cleanPhone(r.phone))}">${esc(r.phone)}</a></span>
       ${r.driverName&&(r.status==='taken'||r.status==='done')?`<span>🚗 ${r.status==='done'?'נהג/ת':'קבוע/ה'}: <button class="linkbtn" data-act="gotoDriver" data-id="${r.driverId}">${esc(r.driverName)}</button> · <a dir="ltr" href="tel:${esc(cleanPhone(r.driverPhone))}">${esc(r.driverPhone)}</a></span>`:''}
       ${r.access==='approved'?'<span class="tag">🔐 נהגים מאושרי עמותה</span>':''}${r.isReturn?'<span class="tag">↩ נסיעת חזור</span>':''}${r.status==='done'?`<span class="tag ${r.confirmed===true?'':'need'}">${r.confirmed===true?'✓ המבקש אישר':r.confirmed===false?'✗ המבקש דיווח שלא בוצעה':'⏳ מחכה לאישור המבקש'}</span>`:''}</div>
     ${occ.length&&(r.status==='open'||r.status==='taken')?`<div class="occ">${occ.map(d=>{const dr=driverFor(r,d);return dr?`<div class="got"><span>${fmtDate(d)}</span><button class="linkbtn" data-act="gotoDriver" data-id="${dr.driverId}">✓ ${esc(dr.driverName)}${dr.cover?' (חד-פעמי)':''}</button></div>`:`<div class="miss"><span>${fmtDate(d)}</span><span>⚠️ אין נהג</span></div>`;}).join('')}</div>`:''}
@@ -948,7 +1020,7 @@ function renderAdmin(){
     ${v.status==='pending'?`<div class="reject-row"><button class="btn accent sm" data-act="approve" data-id="${d.id}">✓ אימות ע״י נוסעים ביחד</button><input type="text" data-reason placeholder="סיבה לדחייה (תוצג לנהג/ת)"><button class="btn danger sm" data-act="reject" data-id="${d.id}">החזרה לתיקון</button></div>`:''}
     <div class="actions">${v.status==='approved'?`<input type="text" data-reason placeholder="סיבה" style="max-width:200px"><button class="btn ghost sm" data-act="reject" data-id="${d.id}">ביטול אימות</button>`:''}
       <button class="btn ${d.active?'ghost':'accent'} sm" data-act="toggleDriver" data-id="${d.id}">${d.active?'השהיה':'הפעלה'}</button></div></article>`;}).join(''):'<div class="empty">אין נהגים בסינון הזה.</div>';
-  renderReports();
+  renderReports();renderOrgs();
 }
 const REP_TYPES={passenger_attitude:'😠 יחס לא ראוי כלפיי',wrong_details:'📝 פרטים לא מדויקים בבקשה',driver_late:'⏰ הנהג/ת איחר/ה',driver_no_show:'🚫 הנהג/ת לא הגיע/ה',attitude:'😟 יחס לא נאות',no_show_passenger:'🚪 הנוסע/ת לא הגיע/ה',safety:'🚨 תאונה או אירוע חריג',other:'💬 אחר'};
 const DRIVER_FAULT=['driver_late','driver_no_show','attitude'];
@@ -1122,17 +1194,22 @@ document.addEventListener('click',async e=>{
       await api.update('drivers',id,{orgApprovals:[...new Set([...(d.orgApprovals||[]),o])],orgRequests:(d.orgRequests||[]).filter(x=>x!==o)});notify('drv:'+id,`🏠 ${o} אישרה אותך. עכשיו אפשר לקחת גם את הנסיעות שלה.`,'#drive');toast(`נוסף אישור של ${o}`);break;}
     case 'orgRevoke':{const d=drivers.find(x=>x.id===id);await api.update('drivers',id,{orgApprovals:(d.orgApprovals||[]).filter(x=>x!==el.dataset.org)});break;}
     case 'statnav':{const g=el.dataset.go;
-      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane'});}
-      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane'});}
-      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane'});}
+      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
+      else if(g==='orgs'){oFilter='pending';setTabs('atab','orgs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
+      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
+      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
       renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
-    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane'});renderAdmin();break;}
+    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
+    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
+    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});renderAdmin();break;}
     case 'rfilter':rFilter=el.dataset.f;renderReports();break;
     case 'repDone':await api.update('reports',id,{status:'handled',handledAt:Date.now()});toast('סומן כטופל');break;
     case 'suspendDriver':{const d=drivers.find(x=>x.id===id);if(d&&d.active===false){toast('הנהג/ת כבר מושהה/ית');break;}if(!armed(el,'להשהות? לחצו שוב'))return;await api.update('drivers',id,{active:false});notify('drv:'+id,'החשבון שלך הושהה זמנית. הצוות ייצור איתך קשר.','#drive');toast('הנהג/ת הושהה/תה');break;}
     case 'bell':{const pn=$('#bellPanel');pn.style.top=(el.getBoundingClientRect().bottom+8)+'px';pn.hidden=!pn.hidden;renderBell();break;}
+    case 'orgApply':orgApplyDlg();break;
+    case 'ofilter':oFilter=el.dataset.f;renderOrgs();break;
+    case 'orgCheck':{const o=orgs.find(x=>x.id===id);await api.update('orgs',id,{checks:{...(o.checks||{}),[el.dataset.k]:el.checked}});break;}
+    case 'orgSet':{const s=el.dataset.s;if(s==='rejected'&&!armed(el,'לדחות? לחצו שוב'))return;await api.update('orgs',id,{status:s,decidedAt:Date.now()});toast(s==='approved'?'הארגון אושר ✓':s==='contacted'?'סומן: בתהליך':s==='rejected'?'הבקשה נדחתה':'עודכן');break;}
     case 'cmDriver':cmDriverDlg(id);break;
     case 'cmOrg':cmOrgDlg(el.dataset.org);break;
     case 'cmDrivers':cmListDlg('drivers');break;
@@ -1154,7 +1231,7 @@ document.addEventListener('click',async e=>{
     case 'previewShabbat':forceShabbat=true;renderShabbat();break;
     case 'exitShabbat':forceShabbat=false;renderShabbat();break;
     case 'resetDemo':if(!armed(el,'בטוח? לחצו שוב'))return;api.reset();me=null;lsSet(ME_KEY,null);reqPhone=null;lsSet(REQ_KEY,null);enterBoard();renderReqMine();toast('נתוני ההדגמה אופסו');break;
-    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane'});break;
+    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});break;
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
     case 'dfilter':dFilter=el.dataset.f;renderAdmin();break;
     case 'adminAdd':adminAdding=true;location.hash='#need';setTabs('ntab','post',{post:'#nPost',mine:'#nMine'});$('#adminAddNote').hidden=false;break;
@@ -1189,6 +1266,7 @@ $('#needForm').addEventListener('submit',submitNeed);
 document.addEventListener('submit',async e=>{
   if(e.target.id==='editForm')saveEdit(e);
   else if(e.target.id==='repForm')submitReport(e);
+  else if(e.target.id==='orgForm')submitOrg(e);
   else if(e.target.id==='thanksForm'){e.preventDefault();const f=e.target,fd=new FormData(f),text=String(fd.get('text')||'').trim(),from=String(fd.get('from')||'').trim();
     if(!text){$('#thanksErr').textContent='נא לכתוב כמה מילים.';return;}
     const d=commDrivers.find(x=>x.id===f.dataset.id);await api.update('drivers',d.id,{thanks:[{from:from||'מישהו מהקהילה',text,ago:'עכשיו'},...(d.thanks||[])],fun:{...(d.fun||{}),thanks:(d.fun?.thanks||0)+1}});

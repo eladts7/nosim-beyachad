@@ -298,6 +298,11 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
   .btn{min-height:42px}
 }
 .dlg-quote{margin:8px 0;padding:10px 12px;border-radius:10px;background:#fffaf0;border:1px solid #f1e3bf;color:var(--ink);line-height:1.6}
+.acct-sec{font-weight:700;margin:14px 0 6px;font-size:15px}
+.acct-sec .hint{font-weight:400}
+.acct-row.slim{padding:8px 14px}
+.org-checks{display:grid;gap:4px;margin-top:10px;font-size:14px;background:var(--bg,#f6f4ef);border-radius:10px;padding:8px 12px}
+.org-checks label{display:flex;gap:8px;align-items:center;cursor:pointer}
 </style>
 
 </head>
@@ -535,10 +540,12 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
         <button class="tab on" data-act="atab" data-tab="reqs">נסיעות</button>
         <button class="tab" data-act="atab" data-tab="drvs">נהגים</button>
         <button class="tab" data-act="atab" data-tab="reps">דיווחים <span class="cnt" id="repCnt" hidden>0</span></button>
+        <button class="tab" data-act="atab" data-tab="orgs">ארגונים <span class="cnt" id="orgCnt" hidden>0</span></button>
       </div>
       <div id="urgentBox"></div>
       <div id="aReqPane"><div class="toolbar"><input type="search" id="aSearch" placeholder="חיפוש"><span id="aChips" style="display:flex;gap:6px;flex-wrap:wrap"></span></div><div class="list" id="aReqList"></div></div>
       <div id="aDrvPane" hidden><div class="toolbar" id="dChips"></div><div class="list" id="aDrvList"></div></div>
+      <div id="aOrgPane" hidden><div class="toolbar" id="oChips"></div><div class="list" id="aOrgList"></div></div>
       <div id="aRepPane" hidden><div class="toolbar" id="rChips"></div><div class="list" id="aRepList"></div></div>
     </div>
   </section>
