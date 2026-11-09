@@ -2,7 +2,14 @@
 <html dir="rtl" lang="he">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d2433">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="נוסעים ביחד">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>נוסעים ביחד</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -254,6 +261,43 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 .terms ul{padding-inline-start:20px;margin:6px 0;line-height:1.7}
 .terms p{line-height:1.7}
 @media (max-width:440px){.bar{gap:6px;flex-wrap:nowrap}.logo{font-size:17px;gap:6px;white-space:nowrap}nav{gap:0;flex-wrap:nowrap}nav a{padding:6px 6px;font-size:14px;white-space:nowrap}.bell{padding:3px 6px;font-size:16px;margin:0}}
+.acct-btn{display:flex;align-items:center;gap:6px;background:var(--brand);color:var(--ink);border:0;border-radius:999px;padding:6px 12px;font:inherit;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
+.acct-btn .acct-ic{font-size:14px}
+.auth-strip{margin:18px 0 0;padding:14px 16px;border-radius:var(--radius);background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.auth-strip .actions{margin:0}
+.auth-in a{font-weight:700;color:var(--accent)}
+.acct-list{display:grid;gap:8px;margin:12px 0}
+.acct-row{display:flex;align-items:center;gap:12px;width:100%;text-align:right;font:inherit;color:var(--ink);text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer}
+.acct-row>span:first-child{font-size:24px}
+.acct-row>div{flex:1}
+.acct-row.on{background:var(--ok-soft);border-color:#a9dcbc;cursor:default}
+.cm-stats button{font:inherit;color:inherit;cursor:pointer;text-align:center;border:0;transition:transform .1s}
+.cm-stats button:hover,.cm-cat[role=button]:hover,.cm-spot-card[role=button]:hover,.cm-hero:hover{transform:translateY(-1px)}
+.cm-hero,.cm-cat[role=button],.cm-spot-card[role=button]{cursor:pointer;transition:transform .1s}
+.cm-more{margin-top:10px;font-weight:700;font-size:14px;opacity:.85}
+.cm-news a,.cm-news button{display:block;width:100%;text-align:right;font:inherit;color:inherit;text-decoration:none;background:none;border:0;cursor:pointer}
+.cm-join{margin-top:22px;text-align:center;padding:18px;border-radius:var(--radius);background:#fff;border:1px dashed var(--line)}
+.cm-list{display:grid;gap:6px;margin:10px 0}
+.cm-row{display:flex;align-items:center;gap:10px;justify-content:space-between;width:100%;font:inherit;color:var(--ink);text-align:right;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+.cm-row>span:nth-child(2){flex:1}
+.rw-avatar.sm{width:34px;height:34px;font-size:13px;flex:none}
+.tabbar{display:none}
+@media (max-width:720px){
+  .bar nav,.acct-btn{display:none!important}
+  .bar{justify-content:space-between}
+  .bell{margin-inline-start:auto}
+  .tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px rgba(16,24,40,.06)}
+  .tabbar a,.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font:inherit;font-size:11px;color:var(--muted);text-decoration:none;background:none;border:0;padding:4px 0;cursor:pointer;min-height:44px;justify-content:center}
+  .tabbar b{font-weight:400}
+  .tabbar span{font-size:20px;line-height:1}
+  .tabbar a.on{color:var(--ink);font-weight:700}
+  main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom))!important}
+  .modal-bg{align-items:flex-end;padding:0}
+  .modal{border-radius:18px 18px 0 0!important;max-height:88vh;overflow:auto;width:100%;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  .btn{min-height:42px}
+}
+.dlg-quote{margin:8px 0;padding:10px 12px;border-radius:10px;background:#fffaf0;border:1px solid #f1e3bf;color:var(--ink);line-height:1.6}
 </style>
 
 </head>
@@ -266,6 +310,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       <a href="#drive" data-nav="drive">נהגים</a>
       <a href="#community" data-nav="community">קהילה</a>
     </nav>
+    <button class="acct-btn" data-act="account" aria-label="כניסה והרשמה"><span class="acct-ic">👤</span><span id="acctLabel">כניסה</span></button>
     <button class="bell" data-act="bell" aria-label="התראות">🔔<span id="bellCnt" hidden>0</span></button>
   </div>
   <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">🕯️ תצוגת שבת</button></div>
@@ -278,6 +323,13 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
   <button class="btn ghost sm" data-act="exitShabbat" data-demo hidden>יציאה מתצוגת שבת (הדגמה)</button>
 </div></div>
 <div class="bell-panel" id="bellPanel" hidden></div>
+<nav class="tabbar" aria-label="ניווט ראשי">
+  <a href="#home" data-nav="home"><span>🏠</span>בית</a>
+  <a href="#need" data-nav="need"><span>🙋</span>צריך הסעה</a>
+  <a href="#drive" data-nav="drive"><span>🚗</span>נהגים</a>
+  <a href="#community" data-nav="community"><span>🌟</span>קהילה</a>
+  <button data-act="account"><span>👤</span><b id="acctTab">כניסה</b></button>
+</nav>
 <div class="modal-bg" id="dlgBg"><div class="modal" style="max-width:520px" id="dlgBody"></div></div>
 <main>
   <!-- ===== בית ===== -->
@@ -288,6 +340,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       <a class="choice ride" href="#need"><div class="ic">🙋</div><h3>צריך הסעה</h3><p>עמותה, דיור, או אדם פרטי. מפרסמים נסיעה חד-פעמית או קבועה, ורואים מי לוקח אותה.</p></a>
       <a class="choice drive" href="#drive"><div class="ic">🚗</div><h3>אני נהג/ת מתנדב/ת</h3><p>נהגי מוניות ואזרחים. נרשמים, עוברים אימות, ובוחרים נסיעות מהלוח מתי שנוח.</p></a>
     </div>
+    <div class="auth-strip" id="authStrip"></div>
     <div class="how">
       <a href="#need"><b>1. מפרסמים ←</b>מאיפה, לאן, מתי, ומה חשוב לדעת על הנוסע.</a>
       <a href="#drive"><b>2. נהג מאומת לוקח ←</b>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</a>
