@@ -224,6 +224,36 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
 .cm-news{display:grid;gap:8px}
 .cm-news div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:15px}
 .cm-date{display:inline-block;font-size:12px;font-weight:700;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:1px 8px;margin-inline-end:8px}
+.bell{margin-inline-start:6px;background:rgba(255,255,255,.1);border:0;border-radius:10px;font-size:18px;padding:5px 9px;cursor:pointer;position:relative;color:#fff}
+.bell span{position:absolute;top:-4px;left:-4px;background:#e5484d;color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
+.bell-panel{position:fixed;top:56px;left:12px;right:12px;max-width:420px;margin-inline-start:auto;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(16,24,40,.2);z-index:40;padding:10px;max-height:70vh;overflow:auto}
+.bell-head{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 8px}
+.bell-item{display:block;width:100%;text-align:right;font:inherit;font-size:14px;background:#fff;border:0;border-top:1px solid var(--line);padding:10px 8px;cursor:pointer;color:var(--ink)}
+.bell-item.unread{background:#fffaf0;font-weight:500}
+.bell-item .hint{display:block;margin-top:2px}
+.linkbtn{font:inherit;background:none;border:0;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+button.stat{font:inherit;text-align:right;cursor:pointer;color:inherit;transition:transform .1s}
+button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
+.stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.urgent{display:block;width:100%;font:inherit;text-align:right;background:var(--danger-soft);border:1px solid #f2b8b5;color:var(--danger);border-radius:12px;padding:12px 14px;margin-bottom:14px;cursor:pointer}
+.trust{margin-top:6px;font-size:13px;color:var(--ok)}
+.issues{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--warn-soft);font-size:14px}
+.issues.bad{background:var(--danger-soft);color:var(--danger)}
+.orgappr{margin-top:10px;font-size:14px;display:grid;gap:6px}
+.org-add{display:flex;gap:8px;flex-wrap:wrap}
+.org-add select{width:auto;flex:1;min-width:160px;padding:6px 10px}
+.x-mini{background:none;border:0;cursor:pointer;color:var(--danger);font-size:14px;padding:0 2px}
+.hilite{box-shadow:0 0 0 3px var(--brand)!important;transition:box-shadow .3s}
+.confirm-box{background:var(--ok-soft);border:1px solid #a9dcbc;border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+.confirm-row{padding:10px 0;border-top:1px solid #c7e8d2}
+.confirm-row:first-of-type{border-top:0}
+.how a{display:block;padding:14px;border-radius:12px;background:#fff;border:1px dashed var(--line);font-size:15px;color:var(--muted);text-decoration:none}
+.how a:hover{border-color:var(--brand)}
+.home-links{display:flex;gap:16px;flex-wrap:wrap}
+.terms h3{margin-top:20px}
+.terms ul{padding-inline-start:20px;margin:6px 0;line-height:1.7}
+.terms p{line-height:1.7}
+@media (max-width:440px){.bar{gap:6px;flex-wrap:nowrap}.logo{font-size:17px;gap:6px;white-space:nowrap}nav{gap:0;flex-wrap:nowrap}nav a{padding:6px 6px;font-size:14px;white-space:nowrap}.bell{padding:3px 6px;font-size:16px;margin:0}}
 </style>
 
 </head>
@@ -236,6 +266,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
       <a href="#drive" data-nav="drive">נהגים</a>
       <a href="#community" data-nav="community">קהילה</a>
     </nav>
+    <button class="bell" data-act="bell" aria-label="התראות">🔔<span id="bellCnt" hidden>0</span></button>
   </div>
   <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">🕯️ תצוגת שבת</button></div>
 </header>
@@ -246,6 +277,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
   <p class="hint">נסיעות לשבת לא מתפרסמות, ונהגים לא מקבלים פניות בשבת.</p>
   <button class="btn ghost sm" data-act="exitShabbat" data-demo hidden>יציאה מתצוגת שבת (הדגמה)</button>
 </div></div>
+<div class="bell-panel" id="bellPanel" hidden></div>
+<div class="modal-bg" id="dlgBg"><div class="modal" style="max-width:520px" id="dlgBody"></div></div>
 <main>
   <!-- ===== בית ===== -->
   <section class="view" id="v-home">
@@ -256,11 +289,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
       <a class="choice drive" href="#drive"><div class="ic">🚗</div><h3>אני נהג/ת מתנדב/ת</h3><p>נהגי מוניות ואזרחים. נרשמים, עוברים אימות, ובוחרים נסיעות מהלוח מתי שנוח.</p></a>
     </div>
     <div class="how">
-      <div><b>1. מפרסמים</b>מאיפה, לאן, מתי, ומה חשוב לדעת על הנוסע.</div>
-      <div><b>2. נהג מאומת לוקח</b>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</div>
-      <div><b>3. מתאמים ונוסעים</b>הנהג מתקשר לתיאום הכתובת, ויוצאים לדרך.</div>
+      <a href="#need"><b>1. מפרסמים ←</b>מאיפה, לאן, מתי, ומה חשוב לדעת על הנוסע.</a>
+      <a href="#drive"><b>2. נהג מאומת לוקח ←</b>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</a>
+      <a href="#community"><b>3. מתאמים ונוסעים ←</b>הנהג מתקשר לתיאום הכתובת, ויוצאים לדרך.</a>
     </div>
-    <a class="small-link" href="#admin">ניהול מנהלי עמותות ומערך הסעות</a>
+    <div class="home-links"><a class="small-link" href="#admin">ניהול מנהלי עמותות ומערך הסעות</a><a class="small-link" href="#terms">תנאי שימוש ופרטיות</a></div>
   </section>
 
   <!-- ===== צריך הסעה ===== -->
@@ -285,6 +318,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
           <div class="field" data-org><label class="lbl req" for="nOrg">שם העמותה / המסגרת</label><input id="nOrg" name="orgName" type="text" maxlength="80" placeholder="למשל: עמותת בית חם"></div>
           <div class="field"><label class="lbl req" for="nContact">שם איש/אשת קשר</label><input id="nContact" name="contactName" type="text" maxlength="80" autocomplete="name"></div>
           <div class="field"><label class="lbl req" for="nPhone">טלפון לתיאום</label><input id="nPhone" name="phone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX" autocomplete="tel"></div>
+          <div class="field full" data-org><span class="lbl">מי יכול לקחת את הנסיעה?</span>
+            <div class="seg"><label><input type="radio" name="access" value="all" checked>כל נהג שאומת ע״י נוסעים ביחד</label><label><input type="radio" name="access" value="approved">רק נהגים שהעמותה שלנו אישרה</label></div></div>
         </div>
         <h3>מסלול</h3>
         <div class="grid">
@@ -309,6 +344,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
         <h3>מה חשוב שהנהג/ת ידע/תדע</h3>
         <div class="checks" id="nNeeds">
         </div>
+        <div class="grid" id="retWrap" hidden style="margin-top:12px"><div class="field"><label class="lbl req" for="nRetTime">שעת איסוף לחזור</label><input id="nRetTime" name="returnTime" type="time"><span class="hint">ייפתח כנסיעה נפרדת ומקושרת, כך שגם נהג אחר יכול לקחת אותה.</span></div></div>
         <div class="cog" id="cogPanel" hidden>
           <div class="cog-h">🧠 כמה פרטים שיעזרו לנהג/ת לשמור על הנוסע/ת</div>
           <p class="hint" style="margin:0 0 10px">הפרטים האלה יוצגו רק לנהג/ת שלקח/ה את הנסיעה. בלי שמות ובלי פרטים מזהים.</p>
@@ -322,6 +358,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
           </div>
         </div>
         <div class="field full" style="margin-top:14px"><label class="lbl" for="nNotes">הערות לנהג</label><textarea id="nNotes" name="notes" maxlength="400" placeholder="בלי פרטים מזהים. למשל: הנוסע לא מדבר, אוהב מוזיקה שקטה, צריך עזרה לעלות לרכב"></textarea></div>
+        <div class="checks" style="margin-top:14px"><label style="border-radius:12px;align-items:flex-start"><input type="checkbox" name="terms" value="1" style="margin-top:5px"><span>קראתי ואני מסכים/ה ל<a href="#terms">תנאי השימוש ולמדיניות הפרטיות</a>, ויש לי הסכמה של הנוסע/ת (או של האפוטרופוס) לשתף את פרטי הנסיעה עם נהג מתנדב.</span></label></div>
         <p class="err" id="needErr"></p>
         <div class="actions"><button class="btn accent" type="submit">פרסום הנסיעה</button></div>
       </form>
@@ -342,6 +379,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
       </div>
       <div id="reqMine" hidden>
         <div class="me"><h1 style="margin:0" id="reqTitle">הנסיעות שלנו</h1><button class="btn ghost sm" data-act="reqOut">מספר אחר</button></div>
+        <div id="reqConfirm"></div>
         <div class="list" id="reqList"></div>
       </div>
     </div>
@@ -362,6 +400,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
               <select id="dType" name="type"><option value="taxi">נהג/ת מונית</option><option value="citizen">אזרח/ית עם רכב פרטי</option></select></div>
             <div class="field"><label class="lbl req" for="dArea">אזור / ערים שנוח לי</label><input id="dArea" name="area" type="text" maxlength="80" placeholder="למשל: רמת גן, תל אביב"></div>
           </div>
+          <div class="checks" style="margin-top:12px"><label style="border-radius:12px;align-items:flex-start"><input type="checkbox" name="terms" value="1" style="margin-top:5px"><span>קראתי ואני מסכים/ה ל<a href="#terms">תנאי השימוש ולקוד ההתנהגות לנהגים</a>.</span></label></div>
           <p class="err" id="regErr"></p>
           <div class="actions"><button class="btn brand" type="submit">הרשמה</button></div>
         </form>
@@ -394,6 +433,30 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
     </div>
   </section>
 
+  <!-- ===== תנאים ===== -->
+  <section class="view" id="v-terms"><div class="card terms">
+    <p class="note" style="margin-top:0">טיוטה ראשונה לצורך הדגמה. לפני הפעלה אמיתית הנוסח ייבדק על ידי עורך דין.</p>
+    <h1>תנאי שימוש, פרטיות וקוד התנהגות</h1>
+    <h3>מה זה נוסעים ביחד</h3>
+    <p>מיזם התנדבותי ללא מטרות רווח שמחבר בין מי שצריך הסעה לבין נהגים מתנדבים. המיזם אינו חברת הסעות, ואינו מעסיק את הנהגים.</p>
+    <h3>אימות נהגים</h3>
+    <p>כל נהג נבדק על ידי צוות נוסעים ביחד לפני הנסיעה הראשונה: רישיון נהיגה, ביטוח רכב ואישור על היעדר עבירות מין. עמותה יכולה לדרוש בנוסף שרק נהגים שהיא אישרה יסיעו את הנוסעים שלה.</p>
+    <h3>פרטיות</h3>
+    <ul><li>בלוח הנהגים מופיעים רק עיר ונקודה כללית, בלי שם הנוסע וכתובת מדויקת.</li>
+    <li>הפרטים המלאים וההנחיות לנסיעה נפתחים רק לנהג שלקח אותה.</li>
+    <li>מסמכי האימות נראים רק לצוות המאמת.</li>
+    <li>מי שמפרסם נסיעה מאשר שיש לו הסכמה של הנוסע או של האפוטרופוס.</li></ul>
+    <h3>קוד התנהגות לנהגים</h3>
+    <ul><li>מגיעים בזמן, ומעדכנים מראש על כל עיכוב.</li>
+    <li>מבטלים לפחות 24 שעות מראש. ביטול מאוחר מחייב סיבה ונרשם.</li>
+    <li>שומרים על כבוד, סבלנות ופרטיות הנוסעים.</li>
+    <li>נוסע עם פגיעה קוגניטיבית לא נשאר לבד, ונמסר אישית לאדם שמחכה לו.</li>
+    <li>דיווחים חוזרים על איחורים, אי הגעה או יחס לא ראוי יובילו לבדיקה ולהשהיה.</li></ul>
+    <h3>אחריות</h3>
+    <p>[לנסח עם עורך דין: אחריות, ביטוח, תאונות ואירועים חריגים]</p>
+    <div class="actions"><a class="btn ghost" href="#home">חזרה</a></div>
+  </div></section>
+
   <!-- ===== קהילה ===== -->
   <section class="view" id="v-community"><div id="communityBody"></div></section>
 
@@ -416,9 +479,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
       <div class="tabs">
         <button class="tab on" data-act="atab" data-tab="reqs">נסיעות</button>
         <button class="tab" data-act="atab" data-tab="drvs">נהגים</button>
+        <button class="tab" data-act="atab" data-tab="reps">דיווחים <span class="cnt" id="repCnt" hidden>0</span></button>
       </div>
+      <div id="urgentBox"></div>
       <div id="aReqPane"><div class="toolbar"><input type="search" id="aSearch" placeholder="חיפוש"><span id="aChips" style="display:flex;gap:6px;flex-wrap:wrap"></span></div><div class="list" id="aReqList"></div></div>
       <div id="aDrvPane" hidden><div class="toolbar" id="dChips"></div><div class="list" id="aDrvList"></div></div>
+      <div id="aRepPane" hidden><div class="toolbar" id="rChips"></div><div class="list" id="aRepList"></div></div>
     </div>
   </section>
 </main>
