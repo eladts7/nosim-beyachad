@@ -196,14 +196,17 @@ function seed(){
     o1:{name:'עמותת בית חם',type:'nonprofit',regNum:'580000001',contactName:'שירה כהן',role:'רכזת דיור',phone:'03-5551234',email:'shira@example.org',ridesPerMonth:'40',status:'approved',checks:chk(true,true,true),at:now-4e9},
     o2:{name:'דיור מוגן אופק',type:'nonprofit',regNum:'580000002',contactName:'דנה לוי',role:'מנהלת',phone:'03-6667788',email:'dana@example.org',ridesPerMonth:'20',status:'approved',checks:chk(true,true,true),at:now-3e9},
     o3:{name:'מעון נווה',type:'nonprofit',regNum:'580000003',contactName:'יוסי אברהם',role:'רכז',phone:'02-5554433',email:'yossi@example.org',ridesPerMonth:'15',status:'contacted',checks:chk(true,true,false),note:'דיברנו, שולחים הסכם',at:now-6e8},
-    o4:{name:'מוניות השרון (דוגמה)',type:'company',regNum:'510000004',contactName:'רוני',role:'בעלים',phone:'09-7776655',email:'roni@example.com',ridesPerMonth:'',message:'רוצים לתרום שעות נסיעה של הנהגים שלנו בימים שקטים',status:'pending',checks:chk(false,false,false),at:now-9e7}};
+    o4:{name:'מרכז יום לקשיש חולון',type:'housing',regNum:'580000004',contactName:'אורנה',role:'מנהלת',phone:'03-5000000',email:'orna@example.org',ridesPerMonth:'30',message:'קשישים שמגיעים אלינו פעמיים בשבוע',status:'pending',checks:chk(false,false,false),at:now-9e7}};
+  out.contacts={
+    c1:{type:'fleet',name:'רוני',org:'מוניות השרון (דוגמה)',phone:'09-7776655',email:'roni@example.com',message:'רוצים שהנהגים שלנו יתנדבו בימים שקטים',status:'new',at:now-9e7},
+    c2:{type:'perks',name:'מיכל',org:'קפה השכונה (דוגמה)',phone:'052-1112233',email:'',message:'קפה ומאפה לנהגים אחרי 10 נסיעות',status:'handled',at:now-5e8}};
   return out;
 }
 
 /* ===== שכבת נתונים ===== */
 function demoApi(){
   const KEY='rides-v10-demo';let data=lsGet(KEY);if(!data||!data.requests)data=seed();
-  const subs={drivers:[],requests:[],reports:[],notifs:[],orgs:[],pvts:[]},authSubs=[];let user=null;
+  const subs={drivers:[],requests:[],reports:[],notifs:[],orgs:[],pvts:[],contacts:[]},authSubs=[];let user=null;
   const col=c=>(data[c]=data[c]||{});
   const snap=c=>Object.entries(col(c)).map(([id,v])=>({id,...v}));
   const save=()=>{lsSet(KEY,data);for(const c in subs)subs[c].forEach(cb=>cb(snap(c)));};
@@ -245,15 +248,15 @@ async function firebaseApi(){
 let api;
 
 /* ===== מצב משותף ===== */
-let pvts=[],orgs=[],requests=[],drivers=[],reqUnsub=null,reports=[],notifs=[],allDrivers=[],extraUnsub=null;
+let contacts=[],pvts=[],orgs=[],requests=[],drivers=[],reqUnsub=null,reports=[],notifs=[],allDrivers=[],extraUnsub=null;
 function ensureRequests(){
-  if(!extraUnsub&&api){extraUnsub=[api.listen('pvts',l=>{pvts=l;renderAdmin();},()=>{}),api.listen('orgs',l=>{orgs=l;renderAdmin();try{renderAccount();}catch(e){}renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
+  if(!extraUnsub&&api){extraUnsub=[api.listen('contacts',l=>{contacts=l;renderAdmin();},()=>{}),api.listen('pvts',l=>{pvts=l;renderAdmin();},()=>{}),api.listen('orgs',l=>{orgs=l;renderAdmin();try{renderAccount();}catch(e){}renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
   if(reqUnsub) return;
   reqUnsub=api.listen('requests',l=>{requests=l;renderBell();renderBoard();if(location.hash==='#community')renderCommunity();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
 }
 
 /* ===== ניווט ===== */
-const VIEWS=['home','need','drive','community','admin','terms'];
+const VIEWS=['home','need','drive','community','admin','terms','about'];
 function route(){
   if((location.hash.slice(1)||'home')==='community')setTimeout(()=>openCommunity(),0);
   const v=location.hash.slice(1)||'home',view=VIEWS.includes(v)?v:'home';
@@ -825,15 +828,16 @@ function accountDlg(choose){
   const roles=[
     me?'':role('🚗','אני נהג/ת מתנדב/ת','נהגי מוניות ואזרחים. נרשמים ומאמתים לבד','<button class="btn brand sm" data-act="goDrvReg">הרשמה</button>','<button class="btn ghost sm" data-act="goDrvLogin">כבר רשום/ה: כניסה</button>'),
     ri&&ri.kind==='private'?'':role('🙋','אני צריך/ה הסעה','אדם פרטי. אימות קצר בפעם הראשונה','<button class="btn brand sm" data-act="goPostPrivate">פרסום נסיעה</button>','<button class="btn ghost sm" data-act="goReqMine">הנסיעות שלי</button>'),
-    ri&&ri.kind==='org'?'':role('🏢','אני מייצג/ת ארגון','עמותה, מסגרת, חברת הסעות, שותף או תורם. מצטרפים דרך שיחה ואימות מול הצוות','<button class="btn brand sm" data-act="orgApply">בקשת הצטרפות</button>','<button class="btn ghost sm" data-act="goReqMine">ארגון מאושר: כניסה</button>')
+    ri&&ri.kind==='org'?'':role('🏢','ארגון שצריך הסעות','עמותה, דיור מוגן, מסגרת או רווחה. מצטרפים דרך שיחה ואימות מול הצוות','<button class="btn brand sm" data-act="orgApply">בקשת הצטרפות</button>','<button class="btn ghost sm" data-act="goReqMine">ארגון מאושר: כניסה</button>')
   ].filter(Boolean);
   openDlg(`<h2 style="margin-top:0">${logged.length?'החשבון שלי':'כניסה / הרשמה'}</h2>
     ${logged.length?`<div class="acct-list">${logged.join('')}</div>`:'<p class="hint" style="margin-top:-6px">מי את/ה?</p>'}
     ${logged.length&&!choose?'<div style="text-align:center;margin:10px 0"><button class="linkbtn" data-act="acctSwitch">כניסה לחשבון אחר</button></div>':`<div class="role-list">${roles.join('')}</div>`}
+    <a class="partner-link" href="#about" data-act="closeDlg">🤝 תורמים, שותפים וחברות? <b>מי אנחנו ויצירת קשר ←</b></a>
     <div class="acct-foot">${adminOn?'':'<a href="#admin" data-act="closeDlg">🛠️ כניסת צוות</a>'}${isStandalone()?'':installEvt?'<button class="linkbtn" data-act="install">📲 התקנה בטלפון</button>':'<span class="hint">📲 אפשר להוסיף למסך הבית מתפריט הדפדפן</span>'}</div>
     <div class="actions" style="justify-content:center"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
 }
-const ORG_TYPES={nonprofit:'עמותה / דיור מוגן / מסגרת',company:'חברת הסעות או מוניות',partner:'שותף להטבות לנהגים',donor:'תורם / קרן / חברה תומכת'};
+const ORG_TYPES={nonprofit:'עמותה',housing:'דיור מוגן / מסגרת / מרכז יום',welfare:'רשות מקומית / מחלקת רווחה',health:'קופת חולים / מרפאה',other:'ארגון אחר'};
 const orgVerified=n=>orgs.some(o=>o.status==='approved'&&o.name===n);
 function orgApplyDlg(){
   openDlg(`<h2 style="margin-top:0">🏢 הצטרפות כארגון</h2>
@@ -860,7 +864,7 @@ async function submitOrg(e){
   e.preventDefault();const f=e.target,fd=new FormData(f),s=k=>String(fd.get(k)||'').trim(),err=$('#orgErr');
   const o={type:s('type'),name:s('name'),regNum:s('regNum').replace(/\D/g,''),contactName:s('contactName'),role:s('role'),phone:s('phone'),email:s('email'),ridesPerMonth:s('ridesPerMonth'),message:s('message'),status:'pending',checks:{registry:false,contact:false,agreement:false},at:Date.now()};
   if(!o.name)return err.textContent='נא למלא את שם הארגון.';
-  if(o.regNum.length!==9)return err.textContent='מספר עמותה או ח.פ. הוא 9 ספרות.';
+  if(!(['welfare','health'].includes(o.type)&&!o.regNum)&&o.regNum.length!==9)return err.textContent='מספר עמותה או ח.פ. הוא 9 ספרות (לרשות או קופת חולים אפשר להשאיר ריק).';
   if(!o.contactName)return err.textContent='נא למלא איש/אשת קשר.';
   if(!validPhone(o.phone))return err.textContent='מספר הטלפון לא תקין.';
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(o.email))return err.textContent='כתובת האימייל לא תקינה.';
@@ -891,6 +895,26 @@ function renderPvts(){
     <div class="meta" style="margin-top:6px"><button class="linkbtn" data-act="filterQ" data-q="${esc(x.phone)}">${rides.length} נסיעות ←</button><span class="${used>lim?'warn-t':''}">החודש: ${used} מתוך ${lim}</span>${abuse?`<span class="warn-t">🚩 ${abuse} דיווחי חשד לניצול</span>`:''}</div>
     <div class="actions">${x.status!=='approved'?`<button class="btn accent sm" data-act="pvtSet" data-id="${x.id}" data-s="approved">✓ אימות</button>`:''}${x.status!=='blocked'?`<button class="btn danger sm" data-act="pvtSet" data-id="${x.id}" data-s="blocked">חסימה</button>`:`<button class="btn ghost sm" data-act="pvtSet" data-id="${x.id}" data-s="pending">החזרה לבדיקה</button>`}</div></article>`;}).join(''):'<div class="empty">אין מבקשים בסינון הזה.</div>';
 }
+const CT_TYPES={donor:'💛 תרומה לתפעול',perks:'☕ הטבות לנהגים',fleet:'🚕 חברת מוניות / הסעות',collab:'🤝 שיתוף פעולה',press:'📰 תקשורת',other:'💬 אחר'};
+async function submitContact(e){
+  e.preventDefault();const f=e.target,fd=new FormData(f),s=k=>String(fd.get(k)||'').trim(),err=$('#ctErr');
+  const c={type:s('type'),name:s('name'),org:s('org'),phone:s('phone'),email:s('email'),message:s('message'),status:'new',at:Date.now()};
+  if(!c.name)return err.textContent='נא למלא שם.';
+  if(!validPhone(c.phone))return err.textContent='מספר הטלפון לא תקין.';
+  if(c.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email))return err.textContent='כתובת האימייל לא תקינה.';
+  err.textContent='';await api.add('contacts',c);notify('admin',`📨 פנייה חדשה: ${CT_TYPES[c.type]} · ${c.name}${c.org?' ('+c.org+')':''}`,'#admin');
+  f.reset();$('#ctCard').innerHTML='<h2 style="margin-top:0">✅ תודה!</h2><p>קיבלנו את הפנייה ונחזור אליך בקרוב.</p>';
+}
+function renderContacts(){
+  if(!adminOn||!$('#aCtList'))return;
+  const n=contacts.filter(c=>c.status==='new').length;const cc=$('#ctCnt');cc.hidden=!n;cc.textContent=n;
+  const l=[...contacts].sort((a,b)=>(a.status==='new'?0:1)-(b.status==='new'?0:1)||b.at-a.at);
+  $('#aCtList').innerHTML=l.length?l.map(c=>`<article class="item ${c.status==='handled'?'inactive':''}">
+    <div class="item-top"><span class="when">${CT_TYPES[c.type]||''}</span><span class="badge ${c.status==='new'?'s-open':'s-done'}">${c.status==='new'?'חדשה':'טופלה'}</span></div>
+    <div class="meta" style="margin-top:6px"><span><b>${esc(c.name)}</b>${c.org?` · ${esc(c.org)}`:''}</span><a dir="ltr" href="tel:${esc(cleanPhone(c.phone))}">${esc(c.phone)}</a>${c.email?`<a dir="ltr" href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''}<span>${new Date(c.at).toLocaleDateString('he-IL')}</span></div>
+    ${c.message?`<div class="meta" style="margin-top:6px">💬 ${esc(c.message)}</div>`:''}
+    <div class="actions"><button class="btn ${c.status==='new'?'accent':'ghost'} sm" data-act="ctSet" data-id="${c.id}" data-s="${c.status==='new'?'handled':'new'}">${c.status==='new'?'✓ סימון כטופלה':'החזרה לחדשות'}</button></div></article>`).join(''):'<div class="empty">אין פניות.</div>';
+}
 const OSTAT={pending:'חדשה',contacted:'בתהליך',approved:'מאושר',rejected:'נדחה'};
 let oFilter='pending';
 function renderOrgs(){
@@ -902,10 +926,10 @@ function renderOrgs(){
   const l=orgs.filter(o=>oFilter==='all'||o.status===oFilter||(oFilter==='pending'&&o.status==='contacted')).sort((a,b)=>b.at-a.at);
   const CK={registry:'נבדק ברשם (עמותות / חברות)',contact:'שיחת היכרות התקיימה',agreement:'הסכם שיתוף פעולה נחתם'};
   $('#aOrgList').innerHTML=l.length?l.map(o=>{const ck=o.checks||{};const all=Object.keys(CK).every(k=>ck[k]);
-    const regUrl=o.type==='nonprofit'?`https://www.guidestar.org.il/organization/${encodeURIComponent(o.regNum)}`:`https://ica.justice.gov.il/GenericCorporarionInfo/SearchCorporation?unit=8`;
+    const isAm=String(o.regNum||'').startsWith('58');const regUrl=isAm?`https://www.guidestar.org.il/organization/${encodeURIComponent(o.regNum)}`:`https://ica.justice.gov.il/GenericCorporarionInfo/SearchCorporation?unit=8`;
     return `<article class="item ${o.status==='rejected'?'inactive':''}">
     <div class="item-top"><span class="when">${esc(o.name)} <span class="tag">${ORG_TYPES[o.type]||''}</span></span><span class="badge ${o.status==='approved'?'s-done':o.status==='rejected'?'s-cancelled':'s-open'}">${OSTAT[o.status]}</span></div>
-    <div class="meta" style="margin-top:6px"><span>${o.type==='nonprofit'?'מס׳ עמותה':'ח.פ.'}: <a href="${regUrl}" target="_blank" rel="noopener" dir="ltr">${esc(o.regNum)}</a></span>
+    <div class="meta" style="margin-top:6px">${o.regNum?`<span>${isAm?'מס׳ עמותה':'ח.פ.'}: <a href="${regUrl}" target="_blank" rel="noopener" dir="ltr">${esc(o.regNum)}</a></span>`:'<span class="hint">גוף ציבורי, בלי מספר רשם</span>'}
       <span>${esc(o.contactName)}${o.role?` (${esc(o.role)})`:''} · <a dir="ltr" href="tel:${esc(cleanPhone(o.phone))}">${esc(o.phone)}</a> · <a dir="ltr" href="mailto:${esc(o.email)}">${esc(o.email)}</a></span>
       ${o.ridesPerMonth?`<span>כ-${esc(o.ridesPerMonth)} נסיעות בחודש</span>`:''}
       ${o.status==='approved'?`<button class="linkbtn" data-act="filterQ" data-q="${esc(o.name)}">לנסיעות של הארגון ←</button>`:''}</div>
@@ -1011,7 +1035,7 @@ function renderAdmin(){
   const tile=(go,n,t,hot)=>`<button class="stat ${hot?'hot':''}" data-act="statnav" data-go="${go}"><div class="n">${n}</div><div class="t">${t} ←</div></button>`;
   $('#stats').innerHTML=tile('missing',uncovered,'נסיעה קרובה בלי נהג',uncovered)+tile('seeking',live.filter(r=>r.schedule==='weekly'&&r.status==='open').length,'קבועות שמחפשות נהג קבוע')
     +tile('approved',drivers.filter(d=>d.active&&vs(d)==='approved').length,'נהגים מאומתים')+tile('pending',drivers.filter(d=>vs(d)==='pending').length,'ממתינים לאימות',drivers.some(d=>vs(d)==='pending'))
-    +tile('pvt',pvts.filter(x=>x.status==='pending').length,'מבקשים פרטיים לאימות',pvts.some(x=>x.status==='pending'))+tile('orgs',orgs.filter(o=>o.status==='pending'||o.status==='contacted').length,'ארגונים ממתינים',orgs.some(o=>o.status==='pending'))+tile('reports',openReps,'דיווחים פתוחים',openReps)+tile('flagged',flagged,'נהגים לבדיקה',flagged);
+    +tile('cts',contacts.filter(c=>c.status==='new').length,'פניות תורמים ושותפים',contacts.some(c=>c.status==='new'))+tile('pvt',pvts.filter(x=>x.status==='pending').length,'מבקשים פרטיים לאימות',pvts.some(x=>x.status==='pending'))+tile('orgs',orgs.filter(o=>o.status==='pending'||o.status==='contacted').length,'ארגונים ממתינים',orgs.some(o=>o.status==='pending'))+tile('reports',openReps,'דיווחים פתוחים',openReps)+tile('flagged',flagged,'נהגים לבדיקה',flagged);
   $('#urgentBox').innerHTML=urgent.length?`<button class="urgent" data-act="statnav" data-go="urgent">🚨 <b>${urgent.length===1?'נסיעה אחת':urgent.length+' נסיעות'} ב-24 השעות הקרובות עדיין בלי נהג.</b> לחצו לרשימה ←</button>`:'';
   const rc=$('#repCnt');rc.hidden=!openReps;rc.textContent=openReps;
   const F={open:'פעילות',urgent:'דחופות',missing:'בלי נהג',seeking:'מחפשות נהג קבוע',expired:'עבר המועד',done:'בוצעו',cancelled:'בוטלו',all:'הכל'};
@@ -1079,7 +1103,7 @@ function renderAdmin(){
     ${v.status==='pending'?`<div class="reject-row"><button class="btn accent sm" data-act="approve" data-id="${d.id}">✓ אימות ע״י נוסעים ביחד</button><input type="text" data-reason placeholder="סיבה לדחייה (תוצג לנהג/ת)"><button class="btn danger sm" data-act="reject" data-id="${d.id}">החזרה לתיקון</button></div>`:''}
     <div class="actions">${v.status==='approved'?`<input type="text" data-reason placeholder="סיבה" style="max-width:200px"><button class="btn ghost sm" data-act="reject" data-id="${d.id}">ביטול אימות</button>`:''}
       <button class="btn ${d.active?'ghost':'accent'} sm" data-act="toggleDriver" data-id="${d.id}">${d.active?'השהיה':'הפעלה'}</button></div></article>`;}).join(''):'<div class="empty">אין נהגים בסינון הזה.</div>';
-  renderReports();renderOrgs();renderPvts();
+  renderReports();renderOrgs();renderPvts();renderContacts();
 }
 const REP_TYPES={abuse:'🚩 חשד לניצול (לא נראה שצריך הסעה)',passenger_attitude:'😠 יחס לא ראוי כלפיי',wrong_details:'📝 פרטים לא מדויקים בבקשה',driver_late:'⏰ הנהג/ת איחר/ה',driver_no_show:'🚫 הנהג/ת לא הגיע/ה',attitude:'😟 יחס לא נאות',no_show_passenger:'🚪 הנוסע/ת לא הגיע/ה',safety:'🚨 תאונה או אירוע חריג',other:'💬 אחר'};
 const DRIVER_FAULT=['driver_late','driver_no_show','attitude'];
@@ -1253,20 +1277,23 @@ document.addEventListener('click',async e=>{
       await api.update('drivers',id,{orgApprovals:[...new Set([...(d.orgApprovals||[]),o])],orgRequests:(d.orgRequests||[]).filter(x=>x!==o)});notify('drv:'+id,`🏠 ${o} אישרה אותך. עכשיו אפשר לקחת גם את הנסיעות שלה.`,'#drive');toast(`נוסף אישור של ${o}`);break;}
     case 'orgRevoke':{const d=drivers.find(x=>x.id===id);await api.update('drivers',id,{orgApprovals:(d.orgApprovals||[]).filter(x=>x!==el.dataset.org)});break;}
     case 'statnav':{const g=el.dataset.go;
-      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
-      else if(g==='pvt'){pFilter='pending';setTabs('atab','pvt',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
-      else if(g==='orgs'){oFilter='pending';setTabs('atab','orgs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
-      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
-      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
+      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
+      else if(g==='cts'){setTabs('atab','cts',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
+      else if(g==='pvt'){pFilter='pending';setTabs('atab','pvt',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
+      else if(g==='orgs'){oFilter='pending';setTabs('atab','orgs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
+      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
+      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
       renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
-    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});renderAdmin();break;}
+    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
+    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
+    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});renderAdmin();break;}
     case 'rfilter':rFilter=el.dataset.f;renderReports();break;
     case 'repDone':await api.update('reports',id,{status:'handled',handledAt:Date.now()});toast('סומן כטופל');break;
     case 'suspendDriver':{const d=drivers.find(x=>x.id===id);if(d&&d.active===false){toast('הנהג/ת כבר מושהה/ית');break;}if(!armed(el,'להשהות? לחצו שוב'))return;await api.update('drivers',id,{active:false});notify('drv:'+id,'החשבון שלך הושהה זמנית. הצוות ייצור איתך קשר.','#drive');toast('הנהג/ת הושהה/תה');break;}
     case 'bell':{const pn=$('#bellPanel');pn.style.top=(el.getBoundingClientRect().bottom+8)+'px';pn.hidden=!pn.hidden;renderBell();break;}
     case 'orgApply':orgApplyDlg();break;
+    case 'ctPick':{const s=$('#ctType');if(s)s.value=el.dataset.t;$('#ctCard').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>$('#ctName')?.focus({preventScroll:true}),400);break;}
+    case 'ctSet':await api.update('contacts',id,{status:el.dataset.s});break;
     case 'toggleDrvLogin':{const b=$('#dLoginBox');b.hidden=!b.hidden;if(!b.hidden)$('#dLoginPhone').focus();break;}
     case 'pfilter':pFilter=el.dataset.f;renderPvts();break;
     case 'pvtSet':{const s=el.dataset.s;if(s==='blocked'&&!armed(el,'לחסום? לחצו שוב'))return;await api.update('pvts',id,{status:s,decidedAt:Date.now()});
@@ -1302,7 +1329,7 @@ document.addEventListener('click',async e=>{
     case 'previewShabbat':forceShabbat=true;renderShabbat();break;
     case 'exitShabbat':forceShabbat=false;renderShabbat();break;
     case 'resetDemo':if(!armed(el,'בטוח? לחצו שוב'))return;api.reset();me=null;lsSet(ME_KEY,null);reqPhone=null;lsSet(REQ_KEY,null);enterBoard();renderReqMine();toast('נתוני ההדגמה אופסו');break;
-    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});break;
+    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});break;
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
     case 'dfilter':dFilter=el.dataset.f;renderAdmin();break;
     case 'adminAdd':adminAdding=true;location.hash='#need';setTabs('ntab','post',{post:'#nPost',mine:'#nMine'});$('#adminAddNote').hidden=false;break;
@@ -1338,6 +1365,7 @@ document.addEventListener('submit',async e=>{
   if(e.target.id==='editForm')saveEdit(e);
   else if(e.target.id==='repForm')submitReport(e);
   else if(e.target.id==='orgForm')submitOrg(e);
+  else if(e.target.id==='ctForm')submitContact(e);
   else if(e.target.id==='dLoginForm'){e.preventDefault();const ph=$('#dLoginPhone').value.trim();if(!validPhone(ph)){$('#dLoginErr').textContent='מספר הטלפון לא תקין.';return;}
     const d=await api.findDriverByPhone(ph);if(!d){$('#dLoginErr').textContent='לא מצאנו נהג/ת עם המספר הזה. אפשר להירשם בטופס למטה.';return;}
     me={id:d.id,name:d.name,phone:d.phone};lsSet(ME_KEY,me);enterBoard();toast(`ברוך/ה השב/ה, ${String(d.name).split(' ')[0]}!`);}
@@ -1370,7 +1398,7 @@ document.title=APP_NAME;$('#appName').textContent=APP_NAME;
 $('#nDays').innerHTML=DAYS.slice(0,6).map((d,i)=>`<label><input type="checkbox" name="days" value="${i}">${d}׳</label>`).join('')+'<span class="hint" style="align-self:center">🕯️ בשבת המערכת לא פעילה</span>';
 $('#nNeeds').innerHTML=NEEDS.map(n=>`<label><input type="checkbox" name="needs" value="${n.k}">${n.i} ${n.t}</label>`).join('');
 needDefaults();
-window.addEventListener('hashchange',()=>{route();renderBell();renderAccount();});route();
+window.addEventListener('hashchange',()=>{closeDlg();route();renderBell();renderAccount();});route();
 if(DEMO){$('#demoBanner').hidden=false;document.querySelectorAll('[data-demo]').forEach(el=>el.hidden=false);$('#loginHint').textContent='גרסת הדגמה: לחצו "כניסה" גם בלי פרטים.';}
 try{api=DEMO?demoApi():await firebaseApi();}catch(x){console.error(x);toast('החיבור לשרת נכשל');api=demoApi();}
 enterBoard();renderReqMine();renderShabbat();renderBell();renderAccount();setInterval(()=>{renderShabbat();renderBell();},60000);

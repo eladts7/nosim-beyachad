@@ -320,6 +320,15 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 .acct-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;margin-top:6px}
 .acct-foot a{color:var(--muted)}
 .login-strip{display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap}
+.ab-hero{padding:8px 0 4px}.ab-hero h1{margin:0 0 8px}.ab-hero p{font-size:18px;line-height:1.7;color:var(--muted);max-width:720px;margin:0}
+.ab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:18px}
+.ab-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.ab-card h3{margin:0 0 6px}.ab-card p,.ab-card li{line-height:1.7;margin:0}.ab-card ul{padding-inline-start:18px;margin:0}
+.ab-help{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px}
+.ab-opt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:right;font:inherit;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:transform .1s,border-color .1s}
+.ab-opt:hover{transform:translateY(-1px);border-color:var(--brand)}
+.ab-opt span{font-size:26px}.ab-opt small{color:var(--muted);line-height:1.5;font-size:14px}
+.partner-link{display:block;margin:12px 0 4px;padding:10px 14px;border-radius:12px;background:#fffaf0;border:1px dashed #e8d39b;color:var(--ink);text-decoration:none;font-size:14px;text-align:center}
 </style>
 
 </head>
@@ -331,6 +340,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       <a href="#need" data-nav="need">צריך הסעה</a>
       <a href="#drive" data-nav="drive">נהגים</a>
       <a href="#community" data-nav="community">קהילה</a>
+      <a href="#about" data-nav="about">מי אנחנו</a>
     </nav>
     <button class="acct-btn" data-act="account" aria-label="כניסה והרשמה"><span class="acct-ic">👤</span><span id="acctLabel">כניסה</span></button>
     <button class="bell" data-act="bell" aria-label="התראות">🔔<span id="bellCnt" hidden>0</span></button>
@@ -368,7 +378,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       <a href="#drive"><b>2. נהג מאומת לוקח ←</b>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</a>
       <a href="#community"><b>3. מתאמים ונוסעים ←</b>הנהג מתקשר לתיאום הכתובת, ויוצאים לדרך.</a>
     </div>
-    <div class="home-links"><a class="small-link" href="#admin">ניהול מנהלי עמותות ומערך הסעות</a><a class="small-link" href="#terms">תנאי שימוש ופרטיות</a></div>
+    <div class="home-links"><a class="small-link" href="#about">מי אנחנו · תורמים ושותפים</a><a class="small-link" href="#admin">ניהול מנהלי עמותות ומערך הסעות</a><a class="small-link" href="#terms">תנאי שימוש ופרטיות</a></div>
   </section>
 
   <!-- ===== צריך הסעה ===== -->
@@ -524,6 +534,36 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
     </div>
   </section>
 
+  <!-- ===== מי אנחנו ===== -->
+  <section class="view" id="v-about">
+    <div class="ab-hero"><h1>מי אנחנו</h1>
+      <p>נוסעים ביחד מחבר בין אנשים שצריכים להגיע לטיפול, לבדיקה או לבית המשפחה, לבין נהגים שמסיעים אותם בהתנדבות מלאה. נהגי מוניות ואזרחים, בלי תשלום על הנסיעה.</p></div>
+    <div class="ab-grid">
+      <div class="ab-card"><h3>איך זה התחיל</h3><p>המיזם נולד משיחה עם נהגת מונית שמסיעה בהתנדבות דיירים של עמותה לאנשים עם מוגבלות. כל התיאום נעשה בטלפון ובוואטסאפ, ונסיעות נופלות בין הכיסאות. הצורך גדול, ואין מערך מסודר.</p></div>
+      <div class="ab-card"><h3>מה מיוחד בנו</h3><ul><li>הנהגים מתנדבים לגמרי. אף שקל לא משולם על נסיעה</li><li>כל נהג עובר אימות: רישיון, ביטוח ותעודת יושר</li><li>התאמה לנוסעים עם מוגבלות, כולל פגיעה קוגניטיבית</li><li>ארגונים ומבקשים פרטיים עוברים אימות</li></ul></div>
+      <div class="ab-card"><h3>לאן אנחנו הולכים</h3><p>פיילוט של 8 שבועות עם עמותה אחת, ואחריו פתיחה הדרגתית לעוד עמותות ואזורים. מודדים כמה נסיעות פורסמו, כמה נלקחו, ותוך כמה זמן.</p></div>
+    </div>
+    <h2 style="margin-top:28px">איך אפשר לעזור</h2>
+    <div class="ab-help">
+      <button class="ab-opt" data-act="ctPick" data-t="donor"><span>💛</span><b>תרומה לתפעול</b><small>הנסיעות בחינם. התרומה מממנת את המערכת, האימות והתיאום</small></button>
+      <button class="ab-opt" data-act="ctPick" data-t="perks"><span>☕</span><b>הטבות לנהגים</b><small>בית קפה, שטיפת רכב או תחנת דלק שמפנקים את המתנדבים</small></button>
+      <button class="ab-opt" data-act="ctPick" data-t="fleet"><span>🚕</span><b>חברת מוניות או הסעות</b><small>נהגים שלכם מתנדבים בשעות השקטות</small></button>
+      <button class="ab-opt" data-act="ctPick" data-t="collab"><span>🤝</span><b>שיתוף פעולה</b><small>מדיה, ייעוץ משפטי, טכנולוגיה, או התנדבות בצוות</small></button>
+    </div>
+    <div class="card" id="ctCard" style="margin-top:18px"><h2 style="margin-top:0">צור קשר</h2>
+      <form id="ctForm" novalidate><div class="grid">
+        <div class="field full"><label class="lbl req" for="ctType">במה מדובר?</label><select id="ctType" name="type"><option value="donor">תרומה לתפעול</option><option value="perks">הטבות לנהגים</option><option value="fleet">חברת מוניות או הסעות</option><option value="collab">שיתוף פעולה</option><option value="press">תקשורת</option><option value="other">אחר</option></select></div>
+        <div class="field"><label class="lbl req" for="ctName">שם</label><input id="ctName" name="name" type="text" maxlength="60"></div>
+        <div class="field"><label class="lbl" for="ctOrg">חברה / ארגון</label><input id="ctOrg" name="org" type="text" maxlength="80"></div>
+        <div class="field"><label class="lbl req" for="ctPhone">טלפון</label><input id="ctPhone" name="phone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX"></div>
+        <div class="field"><label class="lbl" for="ctEmail">אימייל</label><input id="ctEmail" name="email" type="email" dir="ltr"></div>
+        <div class="field full"><label class="lbl" for="ctMsg">כמה מילים</label><textarea id="ctMsg" name="message" maxlength="600"></textarea></div>
+      </div><p class="err" id="ctErr"></p>
+      <div class="actions"><button class="btn brand" type="submit">שליחה</button></div></form>
+      <p class="hint" style="margin-bottom:0">עמותה או מסגרת שרוצה להסיע דרכנו? <button class="linkbtn" data-act="orgApply">בקשת הצטרפות כארגון ←</button></p>
+    </div>
+  </section>
+
   <!-- ===== תנאים ===== -->
   <section class="view" id="v-terms"><div class="card terms">
     <p class="note" style="margin-top:0">טיוטה ראשונה לצורך הדגמה. לפני הפעלה אמיתית הנוסח ייבדק על ידי עורך דין.</p>
@@ -576,11 +616,13 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
         <button class="tab" data-act="atab" data-tab="drvs">נהגים</button>
         <button class="tab" data-act="atab" data-tab="reps">דיווחים <span class="cnt" id="repCnt" hidden>0</span></button>
         <button class="tab" data-act="atab" data-tab="orgs">ארגונים <span class="cnt" id="orgCnt" hidden>0</span></button>
+        <button class="tab" data-act="atab" data-tab="cts">פניות <span class="cnt" id="ctCnt" hidden>0</span></button>
         <button class="tab" data-act="atab" data-tab="pvt">מבקשים פרטיים <span class="cnt" id="pvtCnt" hidden>0</span></button>
       </div>
       <div id="urgentBox"></div>
       <div id="aReqPane"><div class="toolbar"><input type="search" id="aSearch" placeholder="חיפוש"><span id="aChips" style="display:flex;gap:6px;flex-wrap:wrap"></span></div><div class="list" id="aReqList"></div></div>
       <div id="aDrvPane" hidden><div class="toolbar" id="dChips"></div><div class="list" id="aDrvList"></div></div>
+      <div id="aCtPane" hidden><div class="list" id="aCtList"></div></div>
       <div id="aPvtPane" hidden><div class="toolbar" id="pChips"></div><div class="list" id="aPvtList"></div></div>
       <div id="aOrgPane" hidden><div class="toolbar" id="oChips"></div><div class="list" id="aOrgList"></div></div>
       <div id="aRepPane" hidden><div class="toolbar" id="rChips"></div><div class="list" id="aRepList"></div></div>
