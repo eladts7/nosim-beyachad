@@ -186,6 +186,11 @@ function seed(){
     p2:{rideId:'r6',by:'requester',byName:'יוסי, מעון נווה',aboutDriverId:'d4',aboutDriverName:'משה דהן',type:'driver_late',text:'איחור של 20 דקות, הדייר נלחץ.',at:now-2*864e5,status:'open'},
     p3:{rideId:'r2',by:'driver',byName:'אבי פרץ',type:'no_show_passenger',text:'המתנתי 15 דקות והנוסע לא ירד. ניסיתי להתקשר בלי מענה.',at:now-1*864e5,status:'open'}};
   out.notifs={};
+  out.pvts={
+    '0543332211':{name:'משה',phone:'054-3332211',tzLast4:'4417',elig:'age',refName:'',status:'approved',at:now-5e9},
+    '035009988':{name:'רחל (84)',phone:'03-5009988',tzLast4:'0921',elig:'disability',refName:'מרכז יום לקשיש חולון',refPhone:'03-5000000',status:'approved',at:now-6e9},
+    '0507654321':{name:'אבנר',phone:'050-7654321',tzLast4:'3388',elig:'medical',refName:'',status:'pending',at:now-4e6}};
+  out.requests.r8={...base,kind:'private',contactName:'אבנר',phone:'050-7654321',fromCity:'ראשון לציון',fromPlace:'נווה ים',toCity:'חולון',toPlace:'מכון דיאליזה',schedule:'weekly',days:[dow(1),dow(4)],time:'07:30',needs:[],notes:'דיאליזה פעמיים בשבוע',status:'open',privPending:true,createdAt:now-4e6};
   const chk=(a,b,c)=>({registry:a,contact:b,agreement:c});
   out.orgs={
     o1:{name:'עמותת בית חם',type:'nonprofit',regNum:'580000001',contactName:'שירה כהן',role:'רכזת דיור',phone:'03-5551234',email:'shira@example.org',ridesPerMonth:'40',status:'approved',checks:chk(true,true,true),at:now-4e9},
@@ -198,12 +203,13 @@ function seed(){
 /* ===== שכבת נתונים ===== */
 function demoApi(){
   const KEY='rides-v10-demo';let data=lsGet(KEY);if(!data||!data.requests)data=seed();
-  const subs={drivers:[],requests:[],reports:[],notifs:[],orgs:[]},authSubs=[];let user=null;
+  const subs={drivers:[],requests:[],reports:[],notifs:[],orgs:[],pvts:[]},authSubs=[];let user=null;
   const col=c=>(data[c]=data[c]||{});
   const snap=c=>Object.entries(col(c)).map(([id,v])=>({id,...v}));
   const save=()=>{lsSet(KEY,data);for(const c in subs)subs[c].forEach(cb=>cb(snap(c)));};
   return {
     add:async(c,v)=>{const id=Math.random().toString(36).slice(2,10);col(c)[id]=v;save();return id;},
+    set:async(c,id,v)=>{col(c)[id]=v;save();},
     update:async(c,id,v)=>{Object.assign(data[c][id],v);save();},
     claim:async(id,check,patch)=>{const r=data.requests[id];if(!r||!check(r))throw new Error('taken');Object.assign(r,patch(r));save();},
     findDriverByPhone:async p=>{const e=Object.entries(data.drivers).find(([,d])=>cleanPhone(d.phone)===cleanPhone(p));return e?{id:e[0],...e[1]}:null;},
@@ -222,6 +228,7 @@ async function firebaseApi(){
   const app=initializeApp(firebaseConfig),db=fs.getFirestore(app),auth=au.getAuth(app),storage=st.getStorage(app);
   return {
     add:async(c,v)=>(await fs.addDoc(fs.collection(db,c),v)).id,
+    set:(c,id,v)=>fs.setDoc(fs.doc(db,c,id),v),
     update:(c,id,v)=>fs.updateDoc(fs.doc(db,c,id),v),
     claim:(id,check,patch)=>fs.runTransaction(db,async tx=>{const ref=fs.doc(db,'requests',id);const s=await tx.get(ref);if(!s.exists()||!check(s.data()))throw new Error('taken');tx.update(ref,patch(s.data()));}),
     findDriverByPhone:async p=>{const q=fs.query(fs.collection(db,'drivers'),fs.where('phone','==',cleanPhone(p)),fs.limit(1));const s=await fs.getDocs(q);return s.empty?null:{id:s.docs[0].id,...s.docs[0].data()};},
@@ -238,9 +245,9 @@ async function firebaseApi(){
 let api;
 
 /* ===== מצב משותף ===== */
-let orgs=[],requests=[],drivers=[],reqUnsub=null,reports=[],notifs=[],allDrivers=[],extraUnsub=null;
+let pvts=[],orgs=[],requests=[],drivers=[],reqUnsub=null,reports=[],notifs=[],allDrivers=[],extraUnsub=null;
 function ensureRequests(){
-  if(!extraUnsub&&api){extraUnsub=[api.listen('orgs',l=>{orgs=l;renderAdmin();renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
+  if(!extraUnsub&&api){extraUnsub=[api.listen('pvts',l=>{pvts=l;renderAdmin();},()=>{}),api.listen('orgs',l=>{orgs=l;renderAdmin();renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
   if(reqUnsub) return;
   reqUnsub=api.listen('requests',l=>{requests=l;renderBell();renderBoard();if(location.hash==='#community')renderCommunity();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
 }
@@ -263,6 +270,7 @@ function setTabs(group,tab,panes){
 function syncNeedForm(){
   const f=$('#needForm'),kind=f.kind.value,sched=f.schedule.value;
   f.querySelectorAll('[data-org]').forEach(el=>el.hidden=kind!=='org');
+  f.querySelectorAll('[data-private]').forEach(el=>el.hidden=kind!=='private'||adminAdding);
   f.querySelectorAll('[data-once]').forEach(el=>el.hidden=sched!=='once');
   f.querySelectorAll('[data-weekly]').forEach(el=>el.hidden=sched!=='weekly');
   const needs=[...f.querySelectorAll('input[name=needs]:checked')].map(x=>x.value);
@@ -288,6 +296,20 @@ async function submitNeed(e){
   if(!r.time) return err.textContent='נא לבחור שעת איסוף.';
   if(r.needs.includes('returnTrip')&&!retTime) return err.textContent='נא לבחור שעת איסוף לחזור.';
   if(r.needs.includes('returnTrip')&&retTime<=r.time) return err.textContent='שעת החזור צריכה להיות אחרי שעת האיסוף.';
+  let pv=null;
+  if(r.kind==='private'&&!adminAdding){
+    const known=pvts.find(x=>x.id===cleanPhone(r.phone));
+    if(known?.status==='blocked')return err.textContent='לא ניתן לפרסם נסיעות מהמספר הזה. לבירור: פנו לצוות נוסעים ביחד.';
+    if(!known||known.status!=='approved'){
+      const tz=s('tz').replace(/\D/g,'');
+      if(!validTz(tz))return err.textContent='מספר תעודת הזהות לא תקין (9 ספרות כולל ספרת ביקורת).';
+      if(!s('elig'))return err.textContent='נא לבחור למה צריך הסעה.';
+      if(fd.get('decl')!=='1')return err.textContent='נא לאשר את ההצהרה.';
+      pv={tzLast4:tz.slice(-4),elig:s('elig'),refName:s('refName'),refPhone:s('refPhone')};
+    }
+    const lim=(known?.refName||s('refName'))?12:6,used=monthlyRides(r.phone),add=r.schedule==='weekly'?4*(r.days.length||1):1;
+    if(used+add>lim)return err.textContent=`הגעת למכסה של ${lim} נסיעות בחודש למבקש/ת פרטי/ת (${used} כבר בחודש הזה). לנסיעות נוספות: דרך גורם מפנה או עמותה, או פנייה לצוות.`;
+  }
   if(fd.get('terms')!=='1'&&!adminAdding) return err.textContent='נא לאשר את תנאי השימוש וההסכמה של הנוסע/ת.';
   if(r.schedule==='once'){if(!r.date)return err.textContent='נא לבחור תאריך.';if(r.date<todayStr())return err.textContent='התאריך כבר עבר.';r.days=[];r.until='';
     const nxt=new Date(r.date+'T12:00');nxt.setDate(nxt.getDate()+1);
@@ -301,6 +323,11 @@ async function submitNeed(e){
   const btn=f.querySelector('[type=submit]');btn.disabled=true;
   try{
     if(retTime)r.returnTime=retTime;
+    if(r.kind==='private'&&!adminAdding){
+      const pid=cleanPhone(r.phone),known=pvts.find(x=>x.id===pid);
+      if(!known||known.status!=='approved'){r.privPending=true;
+        if(!known){await api.set('pvts',pid,{name:r.contactName,phone:r.phone,...pv,status:'pending',at:Date.now()});notify('admin',`🪪 מבקש/ת פרטי/ת חדש/ה לאימות: ${r.contactName}`,'#admin');}}
+    }
     const mainId=await api.add('requests',r);
     if(retTime){
       const back={...r,fromCity:r.toCity,fromPlace:r.toPlace,toCity:r.fromCity,toPlace:r.fromPlace,time:retTime,needs:r.needs.filter(x=>x!=='returnTrip'),linkedTo:mainId,isReturn:true,covers:{},createdAt:Date.now()};
@@ -369,6 +396,7 @@ function renderReqMine(){
       <div class="item-top"><span class="when">${whenText(r)}</span><span class="badge s-${st}">${st==='taken'?'יש נהג/ת':'מחפשת נהג'}</span></div>
       <div class="route">${esc(r.fromCity)}<span class="arrow">←</span>${esc(r.toCity)}<small>${esc(r.fromPlace)}${r.fromPlace&&r.toPlace?' ← ':''}${esc(r.toPlace)}</small></div>
       ${body}
+      ${r.privPending?'<div class="pend-note">⏳ ממתין לאימות קצר של הצוות (בדרך כלל עד יום עבודה). אחרי האישור הנסיעה תופיע לנהגים.</div>':''}
       ${r.isReturn?'<div class="hint" style="margin-top:6px">↩ נסיעת חזור, מקושרת לנסיעת הלוך</div>':r.returnTime?`<div class="hint" style="margin-top:6px">↩ יש גם נסיעת חזור ב-${esc(r.returnTime)}</div>`:''}
       <div class="actions"><button class="btn ghost sm" data-act="report" data-id="${r.id}" data-by="requester">⚠️ דיווח על בעיה</button><button class="btn danger sm" data-act="reqCancel" data-id="${r.id}">ביטול הנסיעה</button></div>
     </article>`;}).join(''):'<div class="empty">אין נסיעות פעילות למספר הזה. אפשר לפרסם בלשונית "פרסום נסיעה".</div>';
@@ -499,7 +527,7 @@ async function submitProfile(e){
 }
 
 /* --- לוח --- */
-function boardItems(){ return requests.filter(r=>!isExpired(r)&&nextOpenOcc(r)); }
+function boardItems(){ return requests.filter(r=>!isExpired(r)&&!r.privPending&&nextOpenOcc(r)); }
 function myItems(){
   const out=[];const t=todayStr();
   for(const r of requests){
@@ -832,6 +860,29 @@ async function submitOrg(e){
   await api.add('orgs',o);notify('admin',`🏢 בקשת הצטרפות חדשה: ${o.name} (${ORG_TYPES[o.type]})`,'#admin');
   openDlg(`<h2 style="margin-top:0">✅ הבקשה התקבלה</h2><p>תודה! צוות נוסעים ביחד יחזור ל${esc(o.contactName)} בטלפון או במייל לשיחת היכרות קצרה.</p><p class="hint">אחרי האימות תקבלו גישה לפרסום נסיעות בשם הארגון, והנסיעות שלכם יסומנו ✓ ארגון מאומת.</p><div class="actions"><button class="btn brand" data-act="closeDlg">סגירה</button></div>`);
 }
+function validTz(t){if(!/^\d{5,9}$/.test(t))return false;t=t.padStart(9,'0');let s=0;for(let i=0;i<9;i++){let d=+t[i]*((i%2)+1);s+=d>9?d-9:d;}return s%10===0;}
+function monthlyRides(phone){const pid=cleanPhone(phone),m=todayStr().slice(0,7);let n=0;
+  for(const r of requests){if(cleanPhone(r.phone)!==pid||r.status==='cancelled')continue;
+    if(r.schedule==='weekly')n+=4*((r.days||[]).length||1);else if((r.date||'').slice(0,7)===m)n++;}
+  return n;}
+const ELIG={age:'גיל 70+',disability:'מוגבלות / נכות',medical:'טיפול רפואי קבוע',other:'אחר'};
+const PSTAT={pending:'ממתין לאימות',approved:'מאומת',blocked:'חסום'};
+let pFilter='pending';
+function renderPvts(){
+  if(!adminOn||!$('#aPvtList'))return;
+  const waiting=pvts.filter(x=>x.status==='pending').length;const c=$('#pvtCnt');c.hidden=!waiting;c.textContent=waiting;
+  const PF={pending:`ממתינים (${waiting})`,approved:'מאומתים',blocked:'חסומים',all:'הכל'};
+  $('#pChips').innerHTML=Object.entries(PF).map(([k,v])=>`<button class="chip ${k===pFilter?'on':''}" data-act="pfilter" data-f="${k}">${v}</button>`).join('');
+  const l=pvts.filter(x=>pFilter==='all'||x.status===pFilter).sort((a,b)=>b.at-a.at);
+  $('#aPvtList').innerHTML=l.length?l.map(x=>{const rides=requests.filter(r=>cleanPhone(r.phone)===x.id&&r.status!=='cancelled');const used=monthlyRides(x.phone),lim=x.refName?12:6;
+    const abuse=reports.filter(p=>p.type==='abuse'&&rides.some(r=>r.id===p.rideId)).length;
+    return `<article class="item ${x.status==='blocked'?'inactive':''}">
+    <div class="item-top"><span class="when">${esc(x.name)}</span><span class="badge ${x.status==='approved'?'s-done':x.status==='blocked'?'s-cancelled':'s-open'}">${PSTAT[x.status]}</span></div>
+    <div class="meta" style="margin-top:6px"><a dir="ltr" href="tel:${esc(x.id)}">${esc(x.phone)}</a><span>ת״ז: ••••${esc(x.tzLast4||'')}</span><span>סיבה: ${ELIG[x.elig]||'-'}</span>
+      ${x.refName?`<span>גורם מפנה: <b>${esc(x.refName)}</b>${x.refPhone?` · <a dir="ltr" href="tel:${esc(cleanPhone(x.refPhone))}">${esc(x.refPhone)}</a>`:''}</span>`:'<span class="hint">אין גורם מפנה</span>'}</div>
+    <div class="meta" style="margin-top:6px"><button class="linkbtn" data-act="filterQ" data-q="${esc(x.phone)}">${rides.length} נסיעות ←</button><span class="${used>lim?'warn-t':''}">החודש: ${used} מתוך ${lim}</span>${abuse?`<span class="warn-t">🚩 ${abuse} דיווחי חשד לניצול</span>`:''}</div>
+    <div class="actions">${x.status!=='approved'?`<button class="btn accent sm" data-act="pvtSet" data-id="${x.id}" data-s="approved">✓ אימות</button>`:''}${x.status!=='blocked'?`<button class="btn danger sm" data-act="pvtSet" data-id="${x.id}" data-s="blocked">חסימה</button>`:`<button class="btn ghost sm" data-act="pvtSet" data-id="${x.id}" data-s="pending">החזרה לבדיקה</button>`}</div></article>`;}).join(''):'<div class="empty">אין מבקשים בסינון הזה.</div>';
+}
 const OSTAT={pending:'חדשה',contacted:'בתהליך',approved:'מאושר',rejected:'נדחה'};
 let oFilter='pending';
 function renderOrgs(){
@@ -952,7 +1003,7 @@ function renderAdmin(){
   const tile=(go,n,t,hot)=>`<button class="stat ${hot?'hot':''}" data-act="statnav" data-go="${go}"><div class="n">${n}</div><div class="t">${t} ←</div></button>`;
   $('#stats').innerHTML=tile('missing',uncovered,'נסיעה קרובה בלי נהג',uncovered)+tile('seeking',live.filter(r=>r.schedule==='weekly'&&r.status==='open').length,'קבועות שמחפשות נהג קבוע')
     +tile('approved',drivers.filter(d=>d.active&&vs(d)==='approved').length,'נהגים מאומתים')+tile('pending',drivers.filter(d=>vs(d)==='pending').length,'ממתינים לאימות',drivers.some(d=>vs(d)==='pending'))
-    +tile('orgs',orgs.filter(o=>o.status==='pending'||o.status==='contacted').length,'ארגונים ממתינים',orgs.some(o=>o.status==='pending'))+tile('reports',openReps,'דיווחים פתוחים',openReps)+tile('flagged',flagged,'נהגים לבדיקה',flagged);
+    +tile('pvt',pvts.filter(x=>x.status==='pending').length,'מבקשים פרטיים לאימות',pvts.some(x=>x.status==='pending'))+tile('orgs',orgs.filter(o=>o.status==='pending'||o.status==='contacted').length,'ארגונים ממתינים',orgs.some(o=>o.status==='pending'))+tile('reports',openReps,'דיווחים פתוחים',openReps)+tile('flagged',flagged,'נהגים לבדיקה',flagged);
   $('#urgentBox').innerHTML=urgent.length?`<button class="urgent" data-act="statnav" data-go="urgent">🚨 <b>${urgent.length===1?'נסיעה אחת':urgent.length+' נסיעות'} ב-24 השעות הקרובות עדיין בלי נהג.</b> לחצו לרשימה ←</button>`:'';
   const rc=$('#repCnt');rc.hidden=!openReps;rc.textContent=openReps;
   const F={open:'פעילות',urgent:'דחופות',missing:'בלי נהג',seeking:'מחפשות נהג קבוע',expired:'עבר המועד',done:'בוצעו',cancelled:'בוטלו',all:'הכל'};
@@ -975,7 +1026,7 @@ function renderAdmin(){
     ${routeHtml(r)}<div class="meta" style="gap:6px">${needsTags(r)}</div>
     <div class="meta" style="margin-top:6px"><span>מבקש/ת: <b>${esc(r.contactName)}</b> · ${r.kind==='org'?`<button class="linkbtn" data-act="filterQ" data-q="${esc(r.orgName)}">${esc(r.orgName)}</button>${orgVerified(r.orgName)?' <span class="tag">✓ ארגון מאומת</span>':' <span class="tag need">ארגון לא מאומת</span>'}`:'אדם פרטי'} · <a dir="ltr" href="tel:${esc(cleanPhone(r.phone))}">${esc(r.phone)}</a></span>
       ${r.driverName&&(r.status==='taken'||r.status==='done')?`<span>🚗 ${r.status==='done'?'נהג/ת':'קבוע/ה'}: <button class="linkbtn" data-act="gotoDriver" data-id="${r.driverId}">${esc(r.driverName)}</button> · <a dir="ltr" href="tel:${esc(cleanPhone(r.driverPhone))}">${esc(r.driverPhone)}</a></span>`:''}
-      ${r.access==='approved'?'<span class="tag">🔐 נהגים מאושרי עמותה</span>':''}${r.isReturn?'<span class="tag">↩ נסיעת חזור</span>':''}${r.status==='done'?`<span class="tag ${r.confirmed===true?'':'need'}">${r.confirmed===true?'✓ המבקש אישר':r.confirmed===false?'✗ המבקש דיווח שלא בוצעה':'⏳ מחכה לאישור המבקש'}</span>`:''}</div>
+      ${r.privPending?'<button class="tag need linkbtn" data-act="statnav" data-go="pvt">🪪 ממתין לאימות מבקש</button>':''}${r.access==='approved'?'<span class="tag">🔐 נהגים מאושרי עמותה</span>':''}${r.isReturn?'<span class="tag">↩ נסיעת חזור</span>':''}${r.status==='done'?`<span class="tag ${r.confirmed===true?'':'need'}">${r.confirmed===true?'✓ המבקש אישר':r.confirmed===false?'✗ המבקש דיווח שלא בוצעה':'⏳ מחכה לאישור המבקש'}</span>`:''}</div>
     ${occ.length&&(r.status==='open'||r.status==='taken')?`<div class="occ">${occ.map(d=>{const dr=driverFor(r,d);return dr?`<div class="got"><span>${fmtDate(d)}</span><button class="linkbtn" data-act="gotoDriver" data-id="${dr.driverId}">✓ ${esc(dr.driverName)}${dr.cover?' (חד-פעמי)':''}</button></div>`:`<div class="miss"><span>${fmtDate(d)}</span><span>⚠️ אין נהג</span></div>`;}).join('')}</div>`:''}
     ${r.notes?`<div class="meta" style="margin-top:6px">💬 ${esc(r.notes)}</div>`:''}
     ${r.feedback?`<div class="meta" style="margin-top:6px">${r.feedback.score>0?'👍':'👎'} משוב מהמבקש${r.feedback.text?`: ${esc(r.feedback.text)}`:''}</div>`:''}
@@ -1020,9 +1071,9 @@ function renderAdmin(){
     ${v.status==='pending'?`<div class="reject-row"><button class="btn accent sm" data-act="approve" data-id="${d.id}">✓ אימות ע״י נוסעים ביחד</button><input type="text" data-reason placeholder="סיבה לדחייה (תוצג לנהג/ת)"><button class="btn danger sm" data-act="reject" data-id="${d.id}">החזרה לתיקון</button></div>`:''}
     <div class="actions">${v.status==='approved'?`<input type="text" data-reason placeholder="סיבה" style="max-width:200px"><button class="btn ghost sm" data-act="reject" data-id="${d.id}">ביטול אימות</button>`:''}
       <button class="btn ${d.active?'ghost':'accent'} sm" data-act="toggleDriver" data-id="${d.id}">${d.active?'השהיה':'הפעלה'}</button></div></article>`;}).join(''):'<div class="empty">אין נהגים בסינון הזה.</div>';
-  renderReports();renderOrgs();
+  renderReports();renderOrgs();renderPvts();
 }
-const REP_TYPES={passenger_attitude:'😠 יחס לא ראוי כלפיי',wrong_details:'📝 פרטים לא מדויקים בבקשה',driver_late:'⏰ הנהג/ת איחר/ה',driver_no_show:'🚫 הנהג/ת לא הגיע/ה',attitude:'😟 יחס לא נאות',no_show_passenger:'🚪 הנוסע/ת לא הגיע/ה',safety:'🚨 תאונה או אירוע חריג',other:'💬 אחר'};
+const REP_TYPES={abuse:'🚩 חשד לניצול (לא נראה שצריך הסעה)',passenger_attitude:'😠 יחס לא ראוי כלפיי',wrong_details:'📝 פרטים לא מדויקים בבקשה',driver_late:'⏰ הנהג/ת איחר/ה',driver_no_show:'🚫 הנהג/ת לא הגיע/ה',attitude:'😟 יחס לא נאות',no_show_passenger:'🚪 הנוסע/ת לא הגיע/ה',safety:'🚨 תאונה או אירוע חריג',other:'💬 אחר'};
 const DRIVER_FAULT=['driver_late','driver_no_show','attitude'];
 let rFilter='open',repDriver=null,hiDriver=null;
 function renderReports(){
@@ -1100,7 +1151,7 @@ function openDlg(html){$('#dlgBody').innerHTML=html;$('#dlgBg').classList.add('o
 const closeDlg=()=>$('#dlgBg').classList.remove('open');
 function openReport(rideId,by,date){
   const r=reqById(rideId);if(!r)return;
-  const types=by==='driver'?['no_show_passenger','wrong_details','passenger_attitude','safety','other']:['driver_late','driver_no_show','attitude','safety','other'];
+  const types=by==='driver'?['no_show_passenger','wrong_details','passenger_attitude','abuse','safety','other']:['driver_late','driver_no_show','attitude','safety','other'];
   const dr=driverFor(r,date||occDates(r,1)[0]||r.date)||(r.driverId?{driverId:r.driverId,driverName:r.driverName}:null);
   openDlg(`<h2 style="margin-top:0">⚠️ דיווח על בעיה</h2><p class="hint">${esc(r.fromCity)} ← ${esc(r.toCity)} · ${whenText(r)}</p>
     <form id="repForm" data-ride="${r.id}" data-by="${by}" data-driver="${dr?.driverId||''}" data-dname="${esc(dr?.driverName||'')}">
@@ -1194,19 +1245,26 @@ document.addEventListener('click',async e=>{
       await api.update('drivers',id,{orgApprovals:[...new Set([...(d.orgApprovals||[]),o])],orgRequests:(d.orgRequests||[]).filter(x=>x!==o)});notify('drv:'+id,`🏠 ${o} אישרה אותך. עכשיו אפשר לקחת גם את הנסיעות שלה.`,'#drive');toast(`נוסף אישור של ${o}`);break;}
     case 'orgRevoke':{const d=drivers.find(x=>x.id===id);await api.update('drivers',id,{orgApprovals:(d.orgApprovals||[]).filter(x=>x!==el.dataset.org)});break;}
     case 'statnav':{const g=el.dataset.go;
-      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
-      else if(g==='orgs'){oFilter='pending';setTabs('atab','orgs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
-      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
-      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});}
+      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
+      else if(g==='pvt'){pFilter='pending';setTabs('atab','pvt',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
+      else if(g==='orgs'){oFilter='pending';setTabs('atab','orgs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
+      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
+      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});}
       renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
-    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});renderAdmin();break;}
+    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
+    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
+    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});renderAdmin();break;}
     case 'rfilter':rFilter=el.dataset.f;renderReports();break;
     case 'repDone':await api.update('reports',id,{status:'handled',handledAt:Date.now()});toast('סומן כטופל');break;
     case 'suspendDriver':{const d=drivers.find(x=>x.id===id);if(d&&d.active===false){toast('הנהג/ת כבר מושהה/ית');break;}if(!armed(el,'להשהות? לחצו שוב'))return;await api.update('drivers',id,{active:false});notify('drv:'+id,'החשבון שלך הושהה זמנית. הצוות ייצור איתך קשר.','#drive');toast('הנהג/ת הושהה/תה');break;}
     case 'bell':{const pn=$('#bellPanel');pn.style.top=(el.getBoundingClientRect().bottom+8)+'px';pn.hidden=!pn.hidden;renderBell();break;}
     case 'orgApply':orgApplyDlg();break;
+    case 'pfilter':pFilter=el.dataset.f;renderPvts();break;
+    case 'pvtSet':{const s=el.dataset.s;if(s==='blocked'&&!armed(el,'לחסום? לחצו שוב'))return;await api.update('pvts',id,{status:s,decidedAt:Date.now()});
+      const rs=requests.filter(r=>cleanPhone(r.phone)===id&&r.status!=='cancelled');
+      for(const r of rs){if(s==='approved'&&r.privPending)await api.update('requests',r.id,{privPending:false});if(s==='blocked'&&r.status==='open')await api.update('requests',r.id,{privPending:true});}
+      if(s==='approved'){notify('req:'+id,'✅ אומתת ע״י צוות נוסעים ביחד. הנסיעות שלך פורסמו לנהגים.','#need');const r0=rs[0];if(r0)notifyNewRide(r0);}
+      toast(s==='approved'?'אומת/ה, והנסיעות פורסמו ✓':s==='blocked'?'נחסם/ה':'עודכן');break;}
     case 'ofilter':oFilter=el.dataset.f;renderOrgs();break;
     case 'orgCheck':{const o=orgs.find(x=>x.id===id);await api.update('orgs',id,{checks:{...(o.checks||{}),[el.dataset.k]:el.checked}});break;}
     case 'orgSet':{const s=el.dataset.s;if(s==='rejected'&&!armed(el,'לדחות? לחצו שוב'))return;await api.update('orgs',id,{status:s,decidedAt:Date.now()});toast(s==='approved'?'הארגון אושר ✓':s==='contacted'?'סומן: בתהליך':s==='rejected'?'הבקשה נדחתה':'עודכן');break;}
@@ -1231,7 +1289,7 @@ document.addEventListener('click',async e=>{
     case 'previewShabbat':forceShabbat=true;renderShabbat();break;
     case 'exitShabbat':forceShabbat=false;renderShabbat();break;
     case 'resetDemo':if(!armed(el,'בטוח? לחצו שוב'))return;api.reset();me=null;lsSet(ME_KEY,null);reqPhone=null;lsSet(REQ_KEY,null);enterBoard();renderReqMine();toast('נתוני ההדגמה אופסו');break;
-    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane'});break;
+    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane'});break;
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
     case 'dfilter':dFilter=el.dataset.f;renderAdmin();break;
     case 'adminAdd':adminAdding=true;location.hash='#need';setTabs('ntab','post',{post:'#nPost',mine:'#nMine'});$('#adminAddNote').hidden=false;break;
