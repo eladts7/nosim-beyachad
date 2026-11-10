@@ -332,56 +332,91 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 .ab-join{margin-top:28px;background:#1d2433;color:#f6f4ef;border-radius:20px;padding:26px 24px}
 .ab-join h2{margin:0 0 8px;color:#f6f4ef}.ab-join>p{margin:0 0 18px;line-height:1.7;color:#c9d1e0;max-width:680px}
 .ab-join-form{background:#fff;color:var(--ink);border-radius:14px;padding:16px}
+.ico{display:block;flex:none}
+.logo .dot{color:var(--ink)}
+.bell{display:grid;place-items:center}
+.tabbar a,.tabbar button{gap:3px}
+.acct-btn .acct-ic{display:grid}
+.hm-hero{padding:18px 0 6px}
+.hm-kicker{margin:0 0 6px;font-weight:700;color:var(--accent);font-size:15px}
+.hm-hero h1{font-size:clamp(30px,5vw,46px);line-height:1.15;margin:0 0 12px;max-width:760px}
+.hm-sub{font-size:clamp(17px,2.2vw,20px);line-height:1.65;color:var(--muted);margin:0 0 20px;max-width:680px}
+.hm-cta{display:flex;gap:10px;flex-wrap:wrap}
+@media (max-width:520px){.hm-cta .btn{flex:1 1 100%;justify-content:center}}
+.btn.lg{padding:14px 22px;font-size:17px;min-height:52px}
+.hm-trust{list-style:none;padding:0;margin:16px 0 0;display:flex;gap:6px 18px;flex-wrap:wrap;color:var(--muted);font-size:14px}
+.hm-trust li::before{content:"✓";color:var(--ok);font-weight:800;margin-inline-end:6px}
+.hm-h2{font-size:22px;margin:34px 0 12px}
+.hm-steps{list-style:none;counter-reset:s;padding:0;margin:0;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.hm-steps li{counter-increment:s;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:grid;gap:4px}
+.hm-steps li::before{content:counter(s);width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--ink);font-weight:800;display:grid;place-items:center;margin-bottom:6px}
+.hm-steps b{font-size:17px}.hm-steps span{color:var(--muted);line-height:1.6}
+.hm-who{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.hm-who a{display:grid;gap:4px;text-decoration:none;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;transition:border-color .12s,transform .12s}
+.hm-who a:hover{border-color:var(--brand);transform:translateY(-1px)}
+.hm-who b{font-size:17px}.hm-who span{color:var(--muted);line-height:1.6}
+.hm-who em{font-style:normal;font-weight:700;color:var(--accent);margin-top:6px}
+.hm-who em::after{content:" ←"}
+.home-links{margin-top:30px;padding-top:16px;border-top:1px solid var(--line)}
+.cm-cat-i:empty,.choice .ic:empty,.role-head>span:empty,.acct-row>span:first-child:empty,.ab-opt>span:empty,.shab-ic:empty{display:none}
 </style>
 
 </head>
 <body>
 <header>
   <div class="bar">
-    <a class="logo" href="#home"><span class="dot">🚕</span><span id="appName">נוסעים ביחד</span></a>
+    <a class="logo" href="#home"><span class="dot"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15l1.5-5A2 2 0 0 1 8.4 8.5h7.2a2 2 0 0 1 1.9 1.5L19 15"/><rect x="3" y="15" width="18" height="4.5" rx="1.5"/></svg></span><span id="appName">נוסעים ביחד</span></a>
     <nav>
       <a href="#need" data-nav="need">צריך הסעה</a>
       <a href="#drive" data-nav="drive">נהגים</a>
       <a href="#community" data-nav="community">קהילה</a>
       <a href="#about" data-nav="about">מי אנחנו</a>
     </nav>
-    <button class="acct-btn" data-act="account" aria-label="כניסה והרשמה"><span class="acct-ic">👤</span><span id="acctLabel">כניסה</span></button>
-    <button class="bell" data-act="bell" aria-label="התראות">🔔<span id="bellCnt" hidden>0</span></button>
+    <button class="acct-btn" data-act="account" aria-label="כניסה והרשמה"><span class="acct-ic"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.4 4.2-6.5 8-6.5s7 2.1 8 6.5"/></svg></span><span id="acctLabel">כניסה</span></button>
+    <button class="bell" data-act="bell" aria-label="התראות"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span id="bellCnt" hidden>0</span></button>
   </div>
-  <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">🕯️ תצוגת שבת</button></div>
+  <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">תצוגת שבת</button></div>
 </header>
 
 <div class="shabbat" id="shabbat" hidden><div class="shabbat-in">
-  <div class="shabbat-ic">🕯️🕯️</div><h1>שבת שלום</h1>
+  <h1>שבת שלום</h1>
   <p>המערכת שומרת שבת ואינה פעילה בשבת.<br>נחזור לפעול במוצאי שבת, בערך ב-<b id="shabbatEnd"></b>.</p>
   <p class="hint">נסיעות לשבת לא מתפרסמות, ונהגים לא מקבלים פניות בשבת.</p>
   <button class="btn ghost sm" data-act="exitShabbat" data-demo hidden>יציאה מתצוגת שבת (הדגמה)</button>
 </div></div>
 <div class="bell-panel" id="bellPanel" hidden></div>
 <nav class="tabbar" aria-label="ניווט ראשי">
-  <a href="#home" data-nav="home"><span>🏠</span>בית</a>
-  <a href="#need" data-nav="need"><span>🙋</span>צריך הסעה</a>
-  <a href="#drive" data-nav="drive"><span>🚗</span>נהגים</a>
-  <a href="#community" data-nav="community"><span>🌟</span>קהילה</a>
-  <button data-act="account"><span>👤</span><b id="acctTab">כניסה</b></button>
+  <a href="#home" data-nav="home"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>בית</a>
+  <a href="#need" data-nav="need"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>צריך הסעה</a>
+  <a href="#drive" data-nav="drive"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16l1.5-5.5A2 2 0 0 1 8.4 9h7.2a2 2 0 0 1 1.9 1.5L19 16"/><rect x="3" y="16" width="18" height="4" rx="1.5"/><circle cx="7.5" cy="20" r="1"/><circle cx="16.5" cy="20" r="1"/></svg>נהגים</a>
+  <a href="#community" data-nav="community"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/></svg>קהילה</a>
+  <button data-act="account"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.4 4.2-6.5 8-6.5s7 2.1 8 6.5"/></svg><b id="acctTab">כניסה</b></button>
 </nav>
 <div class="modal-bg" id="dlgBg"><div class="modal" style="max-width:520px" id="dlgBody"></div></div>
 <main>
   <!-- ===== בית ===== -->
   <section class="view" id="v-home">
-    <h1>הסעות בהתנדבות למי שצריך</h1>
-    <p class="lead">עמותות ואנשים פרטיים מפרסמים נסיעה. נהגים מתנדבים מאומתים בוחרים נסיעה שמתאימה להם ולוקחים אותה. בלי טלפונים אינסופיים, בלי נסיעות שנופלות בין הכיסאות.</p>
-    <div class="hero">
-      <a class="choice ride" href="#need"><div class="ic">🙋</div><h3>צריך הסעה</h3><p>עמותה, דיור, או אדם פרטי. מפרסמים נסיעה חד-פעמית או קבועה, ורואים מי לוקח אותה.</p></a>
-      <a class="choice drive" href="#drive"><div class="ic">🚗</div><h3>אני נהג/ת מתנדב/ת</h3><p>נהגי מוניות ואזרחים. נרשמים, עוברים אימות, ובוחרים נסיעות מהלוח מתי שנוח.</p></a>
+    <div class="hm-hero">
+      <p class="hm-kicker">נוסעים ביחד</p>
+      <h1>הסעות בהתנדבות לאנשים שצריכים להגיע</h1>
+      <p class="hm-sub">מחברים בין עמותות ואנשים שצריכים הסעה לטיפול, לבדיקה או לביקור משפחתי, לבין נהגים מתנדבים מאומתים. הנסיעה בחינם, לגמרי.</p>
+      <div class="hm-cta"><a class="btn brand lg" href="#need">אני צריך/ה הסעה</a><a class="btn ghost lg" href="#drive">אני רוצה להתנדב כנהג/ת</a></div>
+      <ul class="hm-trust"><li>כל נהג עובר אימות</li><li>בלי תשלום על הנסיעה</li><li>מותאם לנוסעים עם מוגבלות</li></ul>
     </div>
     <div class="auth-strip" id="authStrip"></div>
-    <div class="how">
-      <a href="#need"><b>1. מפרסמים ←</b>מאיפה, לאן, מתי, ומה חשוב לדעת על הנוסע.</a>
-      <a href="#drive"><b>2. נהג מאומת לוקח ←</b>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</a>
-      <a href="#community"><b>3. מתאמים ונוסעים ←</b>הנהג מתקשר לתיאום הכתובת, ויוצאים לדרך.</a>
+    <h2 class="hm-h2">איך זה עובד</h2>
+    <ol class="hm-steps">
+      <li><b>מפרסמים נסיעה</b><span>מאיפה, לאן, מתי, ומה חשוב לדעת על הנוסע.</span></li>
+      <li><b>נהג מאומת לוקח אותה</b><span>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</span></li>
+      <li><b>מתאמים ונוסעים</b><span>הנהג מתקשר לתיאום, ויוצאים לדרך.</span></li>
+    </ol>
+    <h2 class="hm-h2">למי זה מתאים</h2>
+    <div class="hm-who">
+      <a href="#need"><b>עמותות ומסגרות</b><span>דיור מוגן, מרכזי יום ומסגרות שמסיעים דיירים באופן קבוע.</span><em>לפרסום נסיעה</em></a>
+      <a href="#need"><b>אנשים פרטיים</b><span>מבוגרים או אנשים עם מוגבלות, בלי דרך אחרת להגיע.</span><em>לפרסום נסיעה</em></a>
+      <a href="#drive"><b>נהגים מתנדבים</b><span>נהגי מוניות ואזרחים עם רכב, שבוחרים נסיעות מתי שנוח.</span><em>להצטרפות</em></a>
     </div>
-    <div class="home-links"><a class="small-link" href="#about">מי אנחנו · תורמים ושותפים</a><a class="small-link" href="#admin">ניהול מנהלי עמותות ומערך הסעות</a><a class="small-link" href="#terms">תנאי שימוש ופרטיות</a></div>
+    <div class="home-links"><a class="small-link" href="#about">מי אנחנו</a><a class="small-link" href="#about">רוצים לקחת חלק בפרויקט?</a><a class="small-link" href="#terms">תנאי שימוש ופרטיות</a><a class="small-link" href="#admin">כניסת צוות</a></div>
   </section>
 
   <!-- ===== צריך הסעה ===== -->
@@ -407,7 +442,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
           <div class="field"><label class="lbl req" for="nContact">שם איש/אשת קשר</label><input id="nContact" name="contactName" type="text" maxlength="80" autocomplete="name"></div>
           <div class="field"><label class="lbl req" for="nPhone">טלפון לתיאום</label><input id="nPhone" name="phone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX" autocomplete="tel"></div>
           <div class="field full priv-box" data-private hidden>
-            <b>🪪 אימות קצר למבקשים פרטיים</b>
+            <b>אימות קצר למבקשים פרטיים</b>
             <p class="hint" style="margin:4px 0 10px">ההסעות ניתנות בהתנדבות מלאה, ולכן אנחנו מוודאים שהן מגיעות למי שבאמת צריך. בפעם הראשונה הצוות שלנו מאשר את הבקשה, בדרך כלל תוך יום עבודה.</p>
             <div class="grid">
               <div class="field"><label class="lbl req" for="nTz">תעודת זהות של הנוסע/ת</label><input id="nTz" name="tz" type="text" inputmode="numeric" maxlength="9" placeholder="9 ספרות"><span class="hint">נשמרות רק 4 הספרות האחרונות.</span></div>
@@ -427,7 +462,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
           <div class="field"><label class="lbl" for="nFromPlace">נקודת איסוף (כללית)</label><input id="nFromPlace" name="fromPlace" type="text" maxlength="80" placeholder="למשל: דיור בקהילה, שכונת…"></div>
           <div class="field"><label class="lbl req" for="nToCity">עיר יעד</label><input id="nToCity" name="toCity" type="text" maxlength="40"></div>
           <div class="field"><label class="lbl" for="nToPlace">יעד (כללי)</label><input id="nToPlace" name="toPlace" type="text" maxlength="80" placeholder="למשל: בית ההורים, בית חולים…"></div>
-          <div class="field full"><p class="note" style="margin:0">🔒 אין צורך בכתובת מדויקת או בשם הנוסע. אלה עוברים ישירות לנהג המאומת, אחרי שלקח את הנסיעה.</p></div>
+          <div class="field full"><p class="note" style="margin:0">אין צורך בכתובת מדויקת או בשם הנוסע. אלה עוברים ישירות לנהג המאומת, אחרי שלקח את הנסיעה.</p></div>
         </div>
         <h3>מתי</h3>
         <div class="field full"><div class="seg">
@@ -446,7 +481,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
         </div>
         <div class="grid" id="retWrap" hidden style="margin-top:12px"><div class="field"><label class="lbl req" for="nRetTime">שעת איסוף לחזור</label><input id="nRetTime" name="returnTime" type="time"><span class="hint">ייפתח כנסיעה נפרדת ומקושרת, כך שגם נהג אחר יכול לקחת אותה.</span></div></div>
         <div class="cog" id="cogPanel" hidden>
-          <div class="cog-h">🧠 כמה פרטים שיעזרו לנהג/ת לשמור על הנוסע/ת</div>
+          <div class="cog-h">כמה פרטים שיעזרו לנהג/ת לשמור על הנוסע/ת</div>
           <p class="hint" style="margin:0 0 10px">הפרטים האלה יוצגו רק לנהג/ת שלקח/ה את הנסיעה. בלי שמות ובלי פרטים מזהים.</p>
           <div class="field full"><span class="lbl req">האם הנוסע/ת יכול/ה להישאר לבד ברכב לרגע?</span>
             <div class="seg" style="margin-top:4px"><label><input type="radio" name="cogAlone" value="no" checked>לא, צריך השגחה רציפה</label><label><input type="radio" name="cogAlone" value="yes">כן</label></div></div>
@@ -520,14 +555,14 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 
     <div id="board" hidden>
       <div class="me">
-        <h1 style="margin:0">שלום <span id="meName"></span> 👋</h1>
+        <h1 style="margin:0">שלום <span id="meName"></span> </h1>
         <button class="btn ghost sm" data-act="driverOut">יציאה</button>
       </div>
       <div id="verifyBox"></div>
       <div class="tabs">
         <button class="tab on" data-act="dtab" data-tab="open">נסיעות פתוחות <span class="cnt" id="openCnt">0</span></button>
         <button class="tab" data-act="dtab" data-tab="mine">שלי <span class="cnt" id="mineCnt">0</span></button>
-        <button class="tab" data-act="dtab" data-tab="rewards">🏆 הטבות</button>
+        <button class="tab" data-act="dtab" data-tab="rewards">הטבות</button>
         <button class="tab" data-act="dtab" data-tab="profile">פרופיל</button>
       </div>
       <div id="openPane"><div class="toolbar" id="boardChips"></div><div class="list" id="openList"></div></div>
@@ -607,7 +642,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       </form>
     </div>
     <div id="dash" hidden>
-      <div class="me"><h1 style="margin:0">ניהול מנהלי עמותות ומערך הסעות</h1><div style="display:flex;gap:8px"><button class="btn brand sm" data-act="adminAdd">➕ הוספת נסיעה</button><button class="btn ghost sm" data-act="logout">יציאה</button></div></div>
+      <div class="me"><h1 style="margin:0">ניהול מנהלי עמותות ומערך הסעות</h1><div style="display:flex;gap:8px"><button class="btn brand sm" data-act="adminAdd">הוספת נסיעה</button><button class="btn ghost sm" data-act="logout">יציאה</button></div></div>
       <p class="err" id="dashErr"></p>
       <div class="stats" id="stats"></div>
       <div class="tabs">
