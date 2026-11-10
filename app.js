@@ -198,8 +198,8 @@ function seed(){
     o3:{name:'מעון נווה',type:'nonprofit',regNum:'580000003',contactName:'יוסי אברהם',role:'רכז',phone:'02-5554433',email:'yossi@example.org',ridesPerMonth:'15',status:'contacted',checks:chk(true,true,false),note:'דיברנו, שולחים הסכם',at:now-6e8},
     o4:{name:'מרכז יום לקשיש חולון',type:'housing',regNum:'580000004',contactName:'אורנה',role:'מנהלת',phone:'03-5000000',email:'orna@example.org',ridesPerMonth:'30',message:'קשישים שמגיעים אלינו פעמיים בשבוע',status:'pending',checks:chk(false,false,false),at:now-9e7}};
   out.contacts={
-    c1:{type:'fleet',name:'רוני',org:'מוניות השרון (דוגמה)',phone:'09-7776655',email:'roni@example.com',message:'רוצים שהנהגים שלנו יתנדבו בימים שקטים',status:'new',at:now-9e7},
-    c2:{type:'perks',name:'מיכל',org:'קפה השכונה (דוגמה)',phone:'052-1112233',email:'',message:'קפה ומאפה לנהגים אחרי 10 נסיעות',status:'handled',at:now-5e8}};
+    c1:{type:'partner',name:'רוני',org:'מוניות השרון (דוגמה)',phone:'09-7776655',email:'roni@example.com',message:'רוצים שהנהגים שלנו יתנדבו בימים שקטים',status:'new',at:now-9e7},
+    c2:{type:'partner',name:'מיכל',org:'קפה השכונה (דוגמה)',phone:'052-1112233',email:'',message:'קפה ומאפה לנהגים אחרי 10 נסיעות',status:'handled',at:now-5e8}};
   return out;
 }
 
@@ -833,7 +833,7 @@ function accountDlg(choose){
   openDlg(`<h2 style="margin-top:0">${logged.length?'החשבון שלי':'כניסה / הרשמה'}</h2>
     ${logged.length?`<div class="acct-list">${logged.join('')}</div>`:'<p class="hint" style="margin-top:-6px">מי את/ה?</p>'}
     ${logged.length&&!choose?'<div style="text-align:center;margin:10px 0"><button class="linkbtn" data-act="acctSwitch">כניסה לחשבון אחר</button></div>':`<div class="role-list">${roles.join('')}</div>`}
-    <a class="partner-link" href="#about" data-act="closeDlg">🤝 תורמים, שותפים וחברות? <b>מי אנחנו ויצירת קשר ←</b></a>
+    <a class="partner-link" href="#about" data-act="closeDlg">🤝 רוצים לקחת חלק בפרויקט? <b>צרו קשר ←</b></a>
     <div class="acct-foot">${adminOn?'':'<a href="#admin" data-act="closeDlg">🛠️ כניסת צוות</a>'}${isStandalone()?'':installEvt?'<button class="linkbtn" data-act="install">📲 התקנה בטלפון</button>':'<span class="hint">📲 אפשר להוסיף למסך הבית מתפריט הדפדפן</span>'}</div>
     <div class="actions" style="justify-content:center"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
 }
@@ -895,15 +895,15 @@ function renderPvts(){
     <div class="meta" style="margin-top:6px"><button class="linkbtn" data-act="filterQ" data-q="${esc(x.phone)}">${rides.length} נסיעות ←</button><span class="${used>lim?'warn-t':''}">החודש: ${used} מתוך ${lim}</span>${abuse?`<span class="warn-t">🚩 ${abuse} דיווחי חשד לניצול</span>`:''}</div>
     <div class="actions">${x.status!=='approved'?`<button class="btn accent sm" data-act="pvtSet" data-id="${x.id}" data-s="approved">✓ אימות</button>`:''}${x.status!=='blocked'?`<button class="btn danger sm" data-act="pvtSet" data-id="${x.id}" data-s="blocked">חסימה</button>`:`<button class="btn ghost sm" data-act="pvtSet" data-id="${x.id}" data-s="pending">החזרה לבדיקה</button>`}</div></article>`;}).join(''):'<div class="empty">אין מבקשים בסינון הזה.</div>';
 }
-const CT_TYPES={donor:'💛 תרומה לתפעול',perks:'☕ הטבות לנהגים',fleet:'🚕 חברת מוניות / הסעות',collab:'🤝 שיתוף פעולה',press:'📰 תקשורת',other:'💬 אחר'};
+const CT_TYPES={partner:'🤝 רוצים לקחת חלק',donor:'💛 תרומה לתפעול',perks:'☕ הטבות לנהגים',fleet:'🚕 חברת מוניות / הסעות',collab:'🤝 שיתוף פעולה',press:'📰 תקשורת',other:'💬 אחר'};
 async function submitContact(e){
   e.preventDefault();const f=e.target,fd=new FormData(f),s=k=>String(fd.get(k)||'').trim(),err=$('#ctErr');
-  const c={type:s('type'),name:s('name'),org:s('org'),phone:s('phone'),email:s('email'),message:s('message'),status:'new',at:Date.now()};
+  const c={type:'partner',name:s('name'),org:s('org'),phone:s('phone'),email:s('email'),message:s('message'),status:'new',at:Date.now()};
   if(!c.name)return err.textContent='נא למלא שם.';
   if(!validPhone(c.phone))return err.textContent='מספר הטלפון לא תקין.';
   if(c.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email))return err.textContent='כתובת האימייל לא תקינה.';
   err.textContent='';await api.add('contacts',c);notify('admin',`📨 פנייה חדשה: ${CT_TYPES[c.type]} · ${c.name}${c.org?' ('+c.org+')':''}`,'#admin');
-  f.reset();$('#ctCard').innerHTML='<h2 style="margin-top:0">✅ תודה!</h2><p>קיבלנו את הפנייה ונחזור אליך בקרוב.</p>';
+  f.reset();$('#ctCard').innerHTML='<p style="font-size:18px;margin:0">✅ תודה! נחזור אליך בקרוב.</p>';
 }
 function renderContacts(){
   if(!adminOn||!$('#aCtList'))return;
@@ -1292,7 +1292,6 @@ document.addEventListener('click',async e=>{
     case 'suspendDriver':{const d=drivers.find(x=>x.id===id);if(d&&d.active===false){toast('הנהג/ת כבר מושהה/ית');break;}if(!armed(el,'להשהות? לחצו שוב'))return;await api.update('drivers',id,{active:false});notify('drv:'+id,'החשבון שלך הושהה זמנית. הצוות ייצור איתך קשר.','#drive');toast('הנהג/ת הושהה/תה');break;}
     case 'bell':{const pn=$('#bellPanel');pn.style.top=(el.getBoundingClientRect().bottom+8)+'px';pn.hidden=!pn.hidden;renderBell();break;}
     case 'orgApply':orgApplyDlg();break;
-    case 'ctPick':{const s=$('#ctType');if(s)s.value=el.dataset.t;$('#ctCard').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>$('#ctName')?.focus({preventScroll:true}),400);break;}
     case 'ctSet':await api.update('contacts',id,{status:el.dataset.s});break;
     case 'toggleDrvLogin':{const b=$('#dLoginBox');b.hidden=!b.hidden;if(!b.hidden)$('#dLoginPhone').focus();break;}
     case 'pfilter':pFilter=el.dataset.f;renderPvts();break;

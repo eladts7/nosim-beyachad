@@ -329,6 +329,9 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 .ab-opt:hover{transform:translateY(-1px);border-color:var(--brand)}
 .ab-opt span{font-size:26px}.ab-opt small{color:var(--muted);line-height:1.5;font-size:14px}
 .partner-link{display:block;margin:12px 0 4px;padding:10px 14px;border-radius:12px;background:#fffaf0;border:1px dashed #e8d39b;color:var(--ink);text-decoration:none;font-size:14px;text-align:center}
+.ab-join{margin-top:28px;background:#1d2433;color:#f6f4ef;border-radius:20px;padding:26px 24px}
+.ab-join h2{margin:0 0 8px;color:#f6f4ef}.ab-join>p{margin:0 0 18px;line-height:1.7;color:#c9d1e0;max-width:680px}
+.ab-join-form{background:#fff;color:var(--ink);border-radius:14px;padding:16px}
 </style>
 
 </head>
@@ -543,25 +546,21 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       <div class="ab-card"><h3>מה מיוחד בנו</h3><ul><li>הנהגים מתנדבים לגמרי. אף שקל לא משולם על נסיעה</li><li>כל נהג עובר אימות: רישיון, ביטוח ותעודת יושר</li><li>התאמה לנוסעים עם מוגבלות, כולל פגיעה קוגניטיבית</li><li>ארגונים ומבקשים פרטיים עוברים אימות</li></ul></div>
       <div class="ab-card"><h3>לאן אנחנו הולכים</h3><p>פיילוט של 8 שבועות עם עמותה אחת, ואחריו פתיחה הדרגתית לעוד עמותות ואזורים. מודדים כמה נסיעות פורסמו, כמה נלקחו, ותוך כמה זמן.</p></div>
     </div>
-    <h2 style="margin-top:28px">איך אפשר לעזור</h2>
-    <div class="ab-help">
-      <button class="ab-opt" data-act="ctPick" data-t="donor"><span>💛</span><b>תרומה לתפעול</b><small>הנסיעות בחינם. התרומה מממנת את המערכת, האימות והתיאום</small></button>
-      <button class="ab-opt" data-act="ctPick" data-t="perks"><span>☕</span><b>הטבות לנהגים</b><small>בית קפה, שטיפת רכב או תחנת דלק שמפנקים את המתנדבים</small></button>
-      <button class="ab-opt" data-act="ctPick" data-t="fleet"><span>🚕</span><b>חברת מוניות או הסעות</b><small>נהגים שלכם מתנדבים בשעות השקטות</small></button>
-      <button class="ab-opt" data-act="ctPick" data-t="collab"><span>🤝</span><b>שיתוף פעולה</b><small>מדיה, ייעוץ משפטי, טכנולוגיה, או התנדבות בצוות</small></button>
+    <div class="ab-join">
+      <h2>רוצים לקחת חלק בפרויקט?</h2>
+      <p>אנחנו מחפשים שותפים לדרך: חברות, קרנות ואנשים שמאמינים שאף אחד לא צריך לוותר על טיפול או על ביקור משפחתי רק כי אין מי שיסיע אותו. נשמח לשבת ולחשוב יחד איך אתם יכולים להשתלב.</p>
+      <div class="ab-join-form" id="ctCard">
+        <form id="ctForm" novalidate><div class="grid">
+          <div class="field"><label class="lbl req" for="ctName">שם</label><input id="ctName" name="name" type="text" maxlength="60" autocomplete="name"></div>
+          <div class="field"><label class="lbl" for="ctOrg">חברה / ארגון</label><input id="ctOrg" name="org" type="text" maxlength="80" autocomplete="organization"></div>
+          <div class="field"><label class="lbl req" for="ctPhone">טלפון</label><input id="ctPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel"></div>
+          <div class="field"><label class="lbl" for="ctEmail">אימייל</label><input id="ctEmail" name="email" type="email" dir="ltr" autocomplete="email"></div>
+          <div class="field full"><label class="lbl" for="ctMsg">הודעה (לא חובה)</label><textarea id="ctMsg" name="message" maxlength="600" rows="3"></textarea></div>
+        </div><p class="err" id="ctErr"></p>
+        <div class="actions"><button class="btn brand" type="submit">צרו איתי קשר</button></div></form>
+      </div>
     </div>
-    <div class="card" id="ctCard" style="margin-top:18px"><h2 style="margin-top:0">צור קשר</h2>
-      <form id="ctForm" novalidate><div class="grid">
-        <div class="field full"><label class="lbl req" for="ctType">במה מדובר?</label><select id="ctType" name="type"><option value="donor">תרומה לתפעול</option><option value="perks">הטבות לנהגים</option><option value="fleet">חברת מוניות או הסעות</option><option value="collab">שיתוף פעולה</option><option value="press">תקשורת</option><option value="other">אחר</option></select></div>
-        <div class="field"><label class="lbl req" for="ctName">שם</label><input id="ctName" name="name" type="text" maxlength="60"></div>
-        <div class="field"><label class="lbl" for="ctOrg">חברה / ארגון</label><input id="ctOrg" name="org" type="text" maxlength="80"></div>
-        <div class="field"><label class="lbl req" for="ctPhone">טלפון</label><input id="ctPhone" name="phone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX"></div>
-        <div class="field"><label class="lbl" for="ctEmail">אימייל</label><input id="ctEmail" name="email" type="email" dir="ltr"></div>
-        <div class="field full"><label class="lbl" for="ctMsg">כמה מילים</label><textarea id="ctMsg" name="message" maxlength="600"></textarea></div>
-      </div><p class="err" id="ctErr"></p>
-      <div class="actions"><button class="btn brand" type="submit">שליחה</button></div></form>
-      <p class="hint" style="margin-bottom:0">עמותה או מסגרת שרוצה להסיע דרכנו? <button class="linkbtn" data-act="orgApply">בקשת הצטרפות כארגון ←</button></p>
-    </div>
+    <p class="hint" style="margin-top:14px">עמותה או מסגרת שרוצה להסיע דרכנו? <button class="linkbtn" data-act="orgApply">בקשת הצטרפות כארגון ←</button></p>
   </section>
 
   <!-- ===== תנאים ===== -->
