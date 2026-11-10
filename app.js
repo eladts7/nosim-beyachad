@@ -247,7 +247,7 @@ let api;
 /* ===== מצב משותף ===== */
 let pvts=[],orgs=[],requests=[],drivers=[],reqUnsub=null,reports=[],notifs=[],allDrivers=[],extraUnsub=null;
 function ensureRequests(){
-  if(!extraUnsub&&api){extraUnsub=[api.listen('pvts',l=>{pvts=l;renderAdmin();},()=>{}),api.listen('orgs',l=>{orgs=l;renderAdmin();renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
+  if(!extraUnsub&&api){extraUnsub=[api.listen('pvts',l=>{pvts=l;renderAdmin();},()=>{}),api.listen('orgs',l=>{orgs=l;renderAdmin();try{renderAccount();}catch(e){}renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
   if(reqUnsub) return;
   reqUnsub=api.listen('requests',l=>{requests=l;renderBell();renderBoard();if(location.hash==='#community')renderCommunity();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
 }
@@ -799,30 +799,38 @@ function cmOrgDlg(o){
 /* ===== חשבון: כניסה והרשמה ===== */
 let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;});
 const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+/* זהות נוכחית: לכל היותר נהג, מבקש (פרטי או ארגון) ומנהל */
+function reqIdentity(){if(!reqPhone)return null;const p=cleanPhone(reqPhone);
+  const o=orgs.find(x=>cleanPhone(x.phone)===p&&x.status==='approved')||null;
+  const r=requests.find(x=>cleanPhone(x.phone)===p);
+  if(o)return {kind:'org',label:o.name};
+  if(r&&r.kind==='org')return {kind:'org',label:r.orgName};
+  return {kind:'private',label:r?.contactName||'הנסיעות שלי'};}
 function renderAccount(){
-  const who=me?String(me.name||'').split(' ')[0]:reqPhone?'העמותה שלי':adminOn?'ניהול':'';
-  $('#acctLabel').textContent=who||'כניסה';$('#acctTab').textContent=who||'כניסה';
+  const ri=reqIdentity();
+  const who=me?String(me.name||'').split(' ')[0]:ri?(ri.kind==='org'?ri.label:'הנסיעות שלי'):adminOn?'צוות':'';
+  const ic=me?'🚗':ri?(ri.kind==='org'?'🏢':'🙋'):adminOn?'🛠️':'👤';
+  $('#acctLabel').textContent=who||'כניסה / הרשמה';$('#acctTab').textContent=who?'החשבון שלי':'כניסה';
+  document.querySelectorAll('.acct-ic,.tabbar [data-act=account] span').forEach(x=>x.textContent=ic);
   const s=$('#authStrip');if(!s)return;
-  s.innerHTML=me||reqPhone||adminOn?`<div class="auth-in">👋 ${me?`שלום ${esc(who)}!`:reqPhone?'שלום!':'מחובר/ת לניהול.'} ${me?'<a href="#drive">ללוח הנסיעות ←</a>':reqPhone?'<a href="#need" data-act="goReqMine">לנסיעות שלנו ←</a>':'<a href="#admin">לניהול ←</a>'}</div>`
-    :`<b>כבר רשומים או רוצים להצטרף?</b><div class="actions"><button class="btn brand" data-act="account">👤 כניסה / הרשמה</button><button class="btn ghost" data-act="orgApply">🏢 הצטרפות כארגון</button></div>`;
+  s.innerHTML=me||ri||adminOn?`<div class="auth-in">👋 ${me?`שלום ${esc(who)}!`:ri?`שלום${ri.kind==='org'?' '+esc(ri.label):''}!`:'מחובר/ת כצוות.'} ${me?'<a href="#drive">ללוח הנסיעות ←</a>':ri?'<a href="#need" data-act="goReqMine">לנסיעות ←</a>':'<a href="#admin">לניהול ←</a>'}</div>`
+    :`<b>כבר רשומים או רוצים להצטרף?</b><div class="actions"><button class="btn brand" data-act="account">👤 כניסה / הרשמה</button></div>`;
 }
-function accountDlg(){
-  const priv=[],org=[];
-  if(me)priv.push(`<div class="acct-row on"><span>🚗</span><div><b>${esc(me.name)}</b><div class="hint">מחובר/ת כנהג/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
-  else priv.push(`<a class="acct-row" href="#drive" data-act="closeDlg"><span>🚗</span><div><b>נהג/ת מתנדב/ת</b><div class="hint">נהגי מוניות ואזרחים. נרשמים ומעלים מסמכים לבד</div></div><span class="hint">←</span></a>`);
-  if(reqPhone)priv.push(`<div class="acct-row on"><span>🙋</span><div><b>הנסיעות שלי</b><div class="hint" dir="ltr" style="text-align:right">${esc(reqPhone)}</div></div><button class="btn ghost sm" data-act="goReqMine">פתיחה</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
-  else priv.push(`<button class="acct-row" data-act="goReqMine"><span>🙋</span><div><b>צריך/ה הסעה (אדם פרטי)</b><div class="hint">פרסום נסיעה וצפייה בה לפי מספר טלפון</div></div><span class="hint">←</span></button>`);
-  org.push(`<button class="acct-row" data-act="orgApply"><span>🏢</span><div><b>הצטרפות כארגון</b><div class="hint">עמותה, דיור מוגן או מסגרת, חברת הסעות, שותף או תורם. נחזור אליכם לשיחת היכרות ואימות</div></div><span class="hint">←</span></button>`);
-  org.push(`<button class="acct-row" data-act="goReqMine"><span>🔑</span><div><b>ארגון מאושר: כניסה</b><div class="hint">לנסיעות של הארגון (בגרסה המלאה: חשבון לכל רכז/ת)</div></div><span class="hint">←</span></button>`);
-  const adm=adminOn?`<div class="acct-row on"><span>🛠️</span><div><b>צוות נוסעים ביחד</b><div class="hint">מחובר/ת</div></div><a class="btn ghost sm" href="#admin" data-act="closeDlg">לניהול</a><button class="btn ghost sm" data-act="logout">יציאה</button></div>`
-    :`<a class="acct-row slim" href="#admin" data-act="closeDlg"><span>🛠️</span><div><b>צוות נוסעים ביחד</b></div><span class="hint">←</span></a>`;
-  const install=isStandalone()?'':installEvt?`<button class="btn alt" data-act="install" style="width:100%;justify-content:center">📲 התקנה כאפליקציה בטלפון</button>`
-    :`<p class="hint" style="text-align:center">📲 להוספה למסך הבית: באייפון "שיתוף" ואז "הוספה למסך הבית". באנדרואיד: תפריט ⋮ ואז "התקנת אפליקציה".</p>`;
-  openDlg(`<h2 style="margin-top:0">כניסה והרשמה</h2>
-    <div class="acct-sec">👤 אנשים פרטיים <span class="hint">· הרשמה ואימות עצמאיים</span></div><div class="acct-list">${priv.join('')}</div>
-    <div class="acct-sec">🏢 ארגונים <span class="hint">· הצטרפות דרך שיחה ואימות מול הצוות</span></div><div class="acct-list">${org.join('')}</div>
-    <div class="acct-list">${adm}</div>${install}
-    <p class="hint" style="text-align:center;margin:4px 0 0">בגרסה המלאה הכניסה תהיה עם קוד שנשלח ב-SMS.</p>
+function accountDlg(choose){
+  const ri=reqIdentity(),logged=[];
+  if(me)logged.push(`<div class="acct-row on"><span>🚗</span><div><b>${esc(me.name)}</b><div class="hint">נהג/ת מתנדב/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
+  if(ri)logged.push(`<div class="acct-row on"><span>${ri.kind==='org'?'🏢':'🙋'}</span><div><b>${esc(ri.label)}</b><div class="hint">${ri.kind==='org'?'ארגון':'מבקש/ת פרטי/ת'} · <span dir="ltr">${esc(reqPhone)}</span></div></div><button class="btn ghost sm" data-act="goReqMine">לנסיעות</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
+  if(adminOn)logged.push(`<div class="acct-row on"><span>🛠️</span><div><b>צוות נוסעים ביחד</b></div><a class="btn ghost sm" href="#admin" data-act="closeDlg">לניהול</a><button class="btn ghost sm" data-act="logout">יציאה</button></div>`);
+  const role=(ic,t,sub,b1,b2)=>`<div class="role-card"><div class="role-head"><span>${ic}</span><div><b>${t}</b><div class="hint">${sub}</div></div></div><div class="role-btns">${b1}${b2}</div></div>`;
+  const roles=[
+    me?'':role('🚗','אני נהג/ת מתנדב/ת','נהגי מוניות ואזרחים. נרשמים ומאמתים לבד','<button class="btn brand sm" data-act="goDrvReg">הרשמה</button>','<button class="btn ghost sm" data-act="goDrvLogin">כבר רשום/ה: כניסה</button>'),
+    ri&&ri.kind==='private'?'':role('🙋','אני צריך/ה הסעה','אדם פרטי. אימות קצר בפעם הראשונה','<button class="btn brand sm" data-act="goPostPrivate">פרסום נסיעה</button>','<button class="btn ghost sm" data-act="goReqMine">הנסיעות שלי</button>'),
+    ri&&ri.kind==='org'?'':role('🏢','אני מייצג/ת ארגון','עמותה, מסגרת, חברת הסעות, שותף או תורם. מצטרפים דרך שיחה ואימות מול הצוות','<button class="btn brand sm" data-act="orgApply">בקשת הצטרפות</button>','<button class="btn ghost sm" data-act="goReqMine">ארגון מאושר: כניסה</button>')
+  ].filter(Boolean);
+  openDlg(`<h2 style="margin-top:0">${logged.length?'החשבון שלי':'כניסה / הרשמה'}</h2>
+    ${logged.length?`<div class="acct-list">${logged.join('')}</div>`:'<p class="hint" style="margin-top:-6px">מי את/ה?</p>'}
+    ${logged.length&&!choose?'<div style="text-align:center;margin:10px 0"><button class="linkbtn" data-act="acctSwitch">כניסה לחשבון אחר</button></div>':`<div class="role-list">${roles.join('')}</div>`}
+    <div class="acct-foot">${adminOn?'':'<a href="#admin" data-act="closeDlg">🛠️ כניסת צוות</a>'}${isStandalone()?'':installEvt?'<button class="linkbtn" data-act="install">📲 התקנה בטלפון</button>':'<span class="hint">📲 אפשר להוסיף למסך הבית מתפריט הדפדפן</span>'}</div>
     <div class="actions" style="justify-content:center"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
 }
 const ORG_TYPES={nonprofit:'עמותה / דיור מוגן / מסגרת',company:'חברת הסעות או מוניות',partner:'שותף להטבות לנהגים',donor:'תורם / קרן / חברה תומכת'};
@@ -1259,6 +1267,7 @@ document.addEventListener('click',async e=>{
     case 'suspendDriver':{const d=drivers.find(x=>x.id===id);if(d&&d.active===false){toast('הנהג/ת כבר מושהה/ית');break;}if(!armed(el,'להשהות? לחצו שוב'))return;await api.update('drivers',id,{active:false});notify('drv:'+id,'החשבון שלך הושהה זמנית. הצוות ייצור איתך קשר.','#drive');toast('הנהג/ת הושהה/תה');break;}
     case 'bell':{const pn=$('#bellPanel');pn.style.top=(el.getBoundingClientRect().bottom+8)+'px';pn.hidden=!pn.hidden;renderBell();break;}
     case 'orgApply':orgApplyDlg();break;
+    case 'toggleDrvLogin':{const b=$('#dLoginBox');b.hidden=!b.hidden;if(!b.hidden)$('#dLoginPhone').focus();break;}
     case 'pfilter':pFilter=el.dataset.f;renderPvts();break;
     case 'pvtSet':{const s=el.dataset.s;if(s==='blocked'&&!armed(el,'לחסום? לחצו שוב'))return;await api.update('pvts',id,{status:s,decidedAt:Date.now()});
       const rs=requests.filter(r=>cleanPhone(r.phone)===id&&r.status!=='cancelled');
@@ -1275,6 +1284,10 @@ document.addEventListener('click',async e=>{
     case 'cmRides':cmListDlg('rides');break;
     case 'goRewards':location.hash='#drive';setTimeout(()=>document.querySelector('[data-act=dtab][data-tab=rewards]')?.click(),60);break;
     case 'account':accountDlg();break;
+    case 'acctSwitch':accountDlg(true);break;
+    case 'goDrvReg':closeDlg();location.hash='#drive';setTimeout(()=>{$('#dLoginBox').hidden=true;$('#dName')?.focus();$('#regForm').scrollIntoView({block:'start'});},60);break;
+    case 'goDrvLogin':closeDlg();location.hash='#drive';setTimeout(()=>{$('#dLoginBox').hidden=false;$('#dLoginPhone').focus();},60);break;
+    case 'goPostPrivate':closeDlg();location.hash='#need';setTabs('ntab','post',{post:'#nPost',mine:'#nMine'});setTimeout(()=>{const x=document.querySelector('#needForm input[name=kind][value=private]');if(x){x.checked=true;syncNeedForm();}},30);break;
     case 'goReqMine':closeDlg();location.hash='#need';setTabs('ntab','mine',{post:'#nPost',mine:'#nMine'});renderReqMine();break;
     case 'acctOut':if(el.dataset.who==='drv'){me=null;lsSet(ME_KEY,null);enterBoard();}else{reqPhone=null;lsSet(REQ_KEY,null);renderReqMine();}closeDlg();renderAccount();renderBell();toast('יצאת מהחשבון');break;
     case 'install':if(installEvt){installEvt.prompt();installEvt=null;closeDlg();}break;
@@ -1325,6 +1338,9 @@ document.addEventListener('submit',async e=>{
   if(e.target.id==='editForm')saveEdit(e);
   else if(e.target.id==='repForm')submitReport(e);
   else if(e.target.id==='orgForm')submitOrg(e);
+  else if(e.target.id==='dLoginForm'){e.preventDefault();const ph=$('#dLoginPhone').value.trim();if(!validPhone(ph)){$('#dLoginErr').textContent='מספר הטלפון לא תקין.';return;}
+    const d=await api.findDriverByPhone(ph);if(!d){$('#dLoginErr').textContent='לא מצאנו נהג/ת עם המספר הזה. אפשר להירשם בטופס למטה.';return;}
+    me={id:d.id,name:d.name,phone:d.phone};lsSet(ME_KEY,me);enterBoard();toast(`ברוך/ה השב/ה, ${String(d.name).split(' ')[0]}!`);}
   else if(e.target.id==='thanksForm'){e.preventDefault();const f=e.target,fd=new FormData(f),text=String(fd.get('text')||'').trim(),from=String(fd.get('from')||'').trim();
     if(!text){$('#thanksErr').textContent='נא לכתוב כמה מילים.';return;}
     const d=commDrivers.find(x=>x.id===f.dataset.id);await api.update('drivers',d.id,{thanks:[{from:from||'מישהו מהקהילה',text,ago:'עכשיו'},...(d.thanks||[])],fun:{...(d.fun||{}),thanks:(d.fun?.thanks||0)+1}});

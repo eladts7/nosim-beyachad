@@ -311,6 +311,15 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 .tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .tabs::-webkit-scrollbar{display:none}
 .tabs .tab{white-space:nowrap;flex:none}
+.role-list{display:grid;gap:10px;margin:10px 0}
+.role-card{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#fff}
+.role-head{display:flex;gap:12px;align-items:flex-start}
+.role-head>span{font-size:26px;line-height:1}
+.role-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.role-btns .btn{flex:1;justify-content:center}
+.acct-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;margin-top:6px}
+.acct-foot a{color:var(--muted)}
+.login-strip{display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap}
 </style>
 
 </head>
@@ -468,6 +477,10 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
     <div id="driverGate">
       <h1>נהגים מתנדבים</h1>
       <p class="lead">נרשמים בחצי דקה, עוברים אימות קצר, ובוחרים נסיעות מהלוח מתי שנוח.</p>
+      <div class="login-strip"><span>כבר רשומים?</span><button class="btn ghost sm" data-act="toggleDrvLogin">כניסה עם טלפון</button></div>
+      <div class="card narrow" id="dLoginBox" hidden style="margin-top:0"><form id="dLoginForm" novalidate><label class="lbl" for="dLoginPhone">מספר הטלפון שאיתו נרשמת</label>
+        <div style="display:flex;gap:8px;margin-top:6px"><input id="dLoginPhone" type="tel" inputmode="tel" placeholder="05X-XXXXXXX"><button class="btn brand" type="submit">כניסה</button></div>
+        <p class="err" id="dLoginErr"></p><p class="hint" style="margin:0">בגרסה המלאה יישלח קוד ב-SMS.</p></form></div>
       <div class="demo-try" data-demo hidden><span>רוצים לראות את הלוח כמו נהגת מאומתת?</span><button class="btn brand sm" data-act="demoDriver">כניסה כאורית (דוגמה)</button></div>
       <div class="card">
         <form id="regForm" novalidate>
