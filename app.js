@@ -177,6 +177,8 @@ function seed(){
 };
   const f=occDates(out.requests.r1,1)[0];if(f)out.requests.r1.covers={[f]:{...as('d2',d2),at:now-5e5}};
   out.requests.r3.access='approved';
+  const PU={r1:'family',r2:'checkup',r3:'medical',r4:'rehab',r5:'medical',r6:'family',r7:'checkup',r8:'regular'};for(const [k,v] of Object.entries(PU))if(out.requests[k])out.requests[k].purpose=v;
+  if(out.requests.r4){const d4=occDates(out.requests.r4,1)[0];if(d4)out.requests.r4.stages={[d4]:'assigned'};}
   out.drivers.d1.orgApprovals=['עמותת בית חם'];out.drivers.d2.orgApprovals=['דיור מוגן אופק','עמותת בית חם'];
   out.drivers.d1.avDays=['0','1','2','3','4'];out.drivers.d1.avSlots=['morning','noon'];
   out.drivers.d4.lateCancels=[{at:now-5*864e5,reason:'רכב במוסך',rideId:'r5'}];
@@ -252,7 +254,7 @@ let contacts=[],pvts=[],orgs=[],requests=[],drivers=[],reqUnsub=null,reports=[],
 function ensureRequests(){
   if(!extraUnsub&&api){extraUnsub=[api.listen('contacts',l=>{contacts=l;renderAdmin();},()=>{}),api.listen('pvts',l=>{pvts=l;renderAdmin();},()=>{}),api.listen('orgs',l=>{orgs=l;renderAdmin();try{renderAccount();}catch(e){}renderBoard&&renderBoard();},()=>{}),api.listen('reports',l=>{reports=l;renderAdmin();},()=>{}),api.listen('notifs',l=>{notifs=l;renderBell();},()=>{}),api.listen('drivers',l=>{allDrivers=l;renderReqMine();},()=>{})];}
   if(reqUnsub) return;
-  reqUnsub=api.listen('requests',l=>{requests=l;renderBell();renderBoard();if(location.hash==='#community')renderCommunity();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
+  reqUnsub=api.listen('requests',l=>{requests=l;renderBell();renderHomeLive();renderBoard();if(location.hash==='#community')renderCommunity();if(me&&driverTab==='rewards')renderRewards();renderReqMine();renderAdmin();},x=>{console.error(x);toast('בעיה בטעינת הנסיעות');});
 }
 
 /* ===== ניווט ===== */
@@ -289,7 +291,7 @@ async function submitNeed(e){
     fromCity:s('fromCity'),fromPlace:s('fromPlace'),toCity:s('toCity'),toPlace:s('toPlace'),
     schedule:s('schedule'),date:s('date'),days:fd.getAll('days'),until:s('until'),time:s('time'),
     passengers:Math.max(1,parseInt(fd.get('passengers'),10)||1),
-    needs:fd.getAll('needs'),access:s('kind')==='org'?(s('access')||'all'):'all',
+    needs:fd.getAll('needs'),purpose:s('purpose'),access:s('kind')==='org'?(s('access')||'all'):'all',
     notes:s('notes'),status:'open',driverId:null,covers:{},createdAt:Date.now()};
   const retTime=s('returnTime');
   if(r.kind==='org'&&!r.orgName) return err.textContent='נא למלא את שם העמותה.';
@@ -342,7 +344,7 @@ async function submitNeed(e){
     if(adminAdding){adminAdding=false;$('#adminAddNote').hidden=true;toast('הנסיעה נוספה ');location.hash='#admin';btn.disabled=false;return;}
     reqPhone=r.phone;lsSet(REQ_KEY,reqPhone);
     toast('הנסיעה פורסמה כאן תראו מי לוקח אותה');
-    setTabs('ntab','mine',{post:'#nPost',mine:'#nMine'});renderReqMine();window.scrollTo(0,0);
+    setTabs('ntab','mine',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});renderReqMine();window.scrollTo(0,0);
   }catch(x){console.error(x);err.textContent='השליחה נכשלה. נסו שוב בעוד רגע.';}
   btn.disabled=false;
 }
@@ -399,6 +401,7 @@ function renderReqMine(){
       <div class="item-top"><span class="when">${whenText(r)}</span><span class="badge s-${st}">${st==='taken'?'יש נהג/ת':'מחפשת נהג'}</span></div>
       <div class="route">${esc(r.fromCity)}<span class="arrow">←</span>${esc(r.toCity)}<small>${esc(r.fromPlace)}${r.fromPlace&&r.toPlace?' ← ':''}${esc(r.toPlace)}</small></div>
       ${body}
+      ${reqStageLine(r)}${availNote(r)}
       ${r.privPending?'<div class="pend-note">ממתין לאימות קצר של הצוות (בדרך כלל עד יום עבודה). אחרי האישור הנסיעה תופיע לנהגים.</div>':''}
       ${r.isReturn?'<div class="hint" style="margin-top:6px">נסיעת חזור, מקושרת לנסיעת הלוך</div>':r.returnTime?`<div class="hint" style="margin-top:6px">יש גם נסיעת חזור ב-${esc(r.returnTime)}</div>`:''}
       <div class="actions"><button class="btn ghost sm" data-act="report" data-id="${r.id}" data-by="requester">דיווח על בעיה</button><button class="btn danger sm" data-act="reqCancel" data-id="${r.id}">ביטול הנסיעה</button></div>
@@ -573,21 +576,29 @@ function openCard(r){
   return `<article class="item">
     <div class="item-top"><span class="when">${wk?`${fmtDate(nd)} · ${esc(r.time)}`:whenText(r)}</span>${wk?`<span class="hint">${whenText(r)}</span>`:''}</div>
     ${routeHtml(r)}
-    <div class="meta" style="gap:6px">${needsTags(r)}${r.access==='approved'&&r.kind==='org'?'<span class="tag">נהגים מאושרי עמותה</span>':''}${r.isReturn?'<span class="tag">חזור</span>':''}${wk?`<span class="tag seek">מחפשת נהג/ת קבוע/ה${covered?` · ${covered} שבועות קרובים מכוסים`:''}</span>`:''}</div>
+    <div class="meta" style="gap:6px">${(me.avDays||[]).length&&fitsAvail(me,nd,r.time)?'<span class="tag fit">מתאים לזמינות שלך</span>':''}${purposeTag(r)}${needsTags(r)}${r.access==='approved'&&r.kind==='org'?'<span class="tag">נהגים מאושרי עמותה</span>':''}${r.isReturn?'<span class="tag">חזור</span>':''}${wk?`<span class="tag seek">מחפשת נהג/ת קבוע/ה${covered?` · ${covered} שבועות קרובים מכוסים`:''}</span>`:''}</div>
     ${r.notes?`<div class="meta" style="margin-top:8px">${esc(r.notes)}</div>`:''}
     ${cogNotice(r,false)}
     <div class="actions">${warn}${btns}</div></article>`;
 }
+const STAGES=[['assigned','נהג/ת שובץ'],['onway','בדרך לאיסוף'],['riding','בנסיעה'],['arrived','הגיעו']];
+const stageOf=(r,d)=>(r.stages||{})[d]||((r.status==='done'||(r.covers||{})[d]?.done)?'arrived':'assigned');
+function stageBar(r,d){const s=stageOf(r,d),i=STAGES.findIndex(x=>x[0]===s);
+  return `<ol class="stg">${STAGES.map(([k,t],j)=>`<li class="${j<i?'done':j===i?'now':''}">${t}</li>`).join('')}</ol>`;}
 function mineCard({r,kind,date}){
   const label=kind==='series'?`כל שבוע · הבאה: ${fmtDate(date)} · ${esc(r.time)}`:`${fmtDate(date)} · ${esc(r.time)}`;
   const msg=`שלום ${r.contactName}, כאן ${me.name}, נהג/ת מתנדב/ת מ"${APP_NAME}". לקחתי את הנסיעה מ${r.fromCity} ל${r.toCity} ${kind==='series'?'(קבועה)':'ב'+fmtDate(date)}, בשעה ${r.time}. אשמח לתאם את הפרטים.`;
-  const doneBtn=kind==='series'?'':`<button class="btn accent sm" data-act="${kind==='cover'?'coverDone':'done'}" data-id="${r.id}" data-date="${date}">✓ ביצעתי</button>`;
+  const st=stageOf(r,date);
+  const doneBtn=st==='assigned'?`<button class="btn accent" data-act="stage" data-s="onway" data-k="${kind}" data-id="${r.id}" data-date="${date}">יצאתי לדרך</button>`
+    :st==='onway'?`<button class="btn accent" data-act="stage" data-s="riding" data-k="${kind}" data-id="${r.id}" data-date="${date}">אספתי את הנוסע/ת</button>`
+    :st==='riding'?`<button class="btn accent" data-act="stage" data-s="arrived" data-k="${kind}" data-id="${r.id}" data-date="${date}">הגענו</button>`:'<span class="hint">הנסיעה הסתיימה. תודה!</span>';
   const relBtn=`<button class="btn danger sm" data-act="${kind==='cover'?'coverRelease':'release'}" data-id="${r.id}" data-date="${date}">${kind==='series'?'לא יכול/ה להמשיך':'לא אוכל, להחזיר ללוח'}</button>`;
   const wz=q=>`https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes`;
   const navBtns=`<a class="btn ghost sm" target="_blank" rel="noopener" href="${wz([r.fromPlace,r.fromCity].filter(Boolean).join(' '))}">ניווט לאיסוף</a><a class="btn ghost sm" target="_blank" rel="noopener" href="${wz([r.toPlace,r.toCity].filter(Boolean).join(' '))}">ניווט ליעד</a>`;
   return `<article class="item mine">
     <div class="item-top"><span class="when">${label}</span>${kind==='cover'?'<span class="tag cover">חד-פעמי</span>':kind==='series'?'<span class="tag weekly">קבוע שלי</span>':''}</div>
-    ${routeHtml(r)}<div class="meta" style="gap:6px">${needsTags(r)}</div>
+    ${routeHtml(r)}<div class="meta" style="gap:6px">${purposeTag(r)}${needsTags(r)}</div>
+    ${stageBar(r,date)}
     ${r.notes?`<div class="meta" style="margin-top:8px">${esc(r.notes)}</div>`:''}
     ${cogNotice(r,true)}
     <div class="contact">לתיאום: <b>${esc(r.contactName)}</b>${r.kind==='org'?` (${esc(r.orgName)})`:''} · <span class="num">${esc(r.phone)}</span>
@@ -894,7 +905,7 @@ function renderPvts(){
     <div class="meta" style="margin-top:6px"><button class="linkbtn" data-act="filterQ" data-q="${esc(x.phone)}">${rides.length} נסיעות ←</button><span class="${used>lim?'warn-t':''}">החודש: ${used} מתוך ${lim}</span>${abuse?`<span class="warn-t">${abuse} דיווחי חשד לניצול</span>`:''}</div>
     <div class="actions">${x.status!=='approved'?`<button class="btn accent sm" data-act="pvtSet" data-id="${x.id}" data-s="approved">✓ אימות</button>`:''}${x.status!=='blocked'?`<button class="btn danger sm" data-act="pvtSet" data-id="${x.id}" data-s="blocked">חסימה</button>`:`<button class="btn ghost sm" data-act="pvtSet" data-id="${x.id}" data-s="pending">החזרה לבדיקה</button>`}</div></article>`;}).join(''):'<div class="empty">אין מבקשים בסינון הזה.</div>';
 }
-const CT_TYPES={partner:'רוצים לקחת חלק',donor:'תרומה לתפעול',perks:'הטבות לנהגים',fleet:'חברת מוניות / הסעות',collab:'שיתוף פעולה',press:'תקשורת',other:'אחר'};
+const CT_TYPES={callback:'בקשת שיחה חוזרת (לפרסום נסיעה)',partner:'רוצים לקחת חלק',donor:'תרומה לתפעול',perks:'הטבות לנהגים',fleet:'חברת מוניות / הסעות',collab:'שיתוף פעולה',press:'תקשורת',other:'אחר'};
 async function submitContact(e){
   e.preventDefault();const f=e.target,fd=new FormData(f),s=k=>String(fd.get(k)||'').trim(),err=$('#ctErr');
   const c={type:'partner',name:s('name'),org:s('org'),phone:s('phone'),email:s('email'),message:s('message'),status:'new',at:Date.now()};
@@ -937,6 +948,229 @@ function renderOrgs(){
     ${o.note?`<div class="hint">${esc(o.note)}</div>`:''}
     <div class="actions">${o.status==='approved'?`<button class="btn ghost sm" data-act="orgSet" data-id="${o.id}" data-s="contacted">ביטול אישור</button>`:o.status==='rejected'?`<button class="btn ghost sm" data-act="orgSet" data-id="${o.id}" data-s="pending">החזרה לבדיקה</button>`
       :`${o.status==='pending'?`<button class="btn ghost sm" data-act="orgSet" data-id="${o.id}" data-s="contacted">סימון: יצרנו קשר</button>`:''}<button class="btn accent sm" data-act="orgSet" data-id="${o.id}" data-s="approved" ${all?'':'disabled title="צריך לסמן את כל הבדיקות"'}>✓ אישור הארגון</button><button class="btn danger sm" data-act="orgSet" data-id="${o.id}" data-s="rejected">דחייה</button>`}</div></article>`;}).join(''):'<div class="empty">אין ארגונים בסינון הזה.</div>';
+}
+
+
+/* ===== מטרת נסיעה ===== */
+const PURPOSES={medical:'טיפול רפואי',checkup:'בדיקה או ביקור רופא',regular:'טיפול קבוע (דיאליזה, הקרנות, פיזיותרפיה)',rehab:'טיפול רגשי או שיקומי',family:'ביקור משפחתי',other:'אחר'};
+const purposeTag=r=>r.purpose&&PURPOSES[r.purpose]?`<span class="tag">${PURPOSES[r.purpose]}</span>`:'';
+/* שלב הנסיעה אצל המבקש */
+function reqStageLine(r){
+  const d=occDates(r,1)[0]||r.date;if(!d||!driverFor(r,d))return '';
+  return `<div class="req-stage"><span class="hint">${fmtDate(d)}:</span>${stageBar(r,d)}</div>`;
+}
+/* כמה נהגים זמינים בחלון של הנסיעה */
+function availNote(r){
+  const d=nextOpenOcc(r);if(!d||r.privPending)return '';
+  const n=allDrivers.filter(x=>x.active!==false&&x.verification?.status==='approved'&&(x.avDays||[]).length&&fitsAvail(x,d,r.time)).length;
+  return n?`<div class="avail-note">${n===1?'נהג/ת אחד/ת סימן/ה':n+' נהגים סימנו'} שהם זמינים בחלון הזה, וקיבלו התראה.</div>`:'';
+}
+/* ===== שיבוץ ידני ===== */
+function assignDlg(id){
+  const r=reqById(id);if(!r)return;const d=nextOpenOcc(r)||r.date;
+  const pool=drivers.filter(x=>x.active!==false&&x.verification?.status==='approved').map(x=>({x,score:(areaMatch(x.area,r.fromCity)?2:0)+((x.avDays||[]).length&&fitsAvail(x,d,r.time)?2:0)+(hasNeed(r,'wheelchair')&&x.accessible?1:0)-(hasNeed(r,'wheelchair')&&!x.accessible?5:0)})).sort((a,b)=>b.score-a.score);
+  openDlg(`<h2 style="margin-top:0">שיבוץ נהג/ת</h2><p class="hint">${esc(r.fromCity)} ← ${esc(r.toCity)} · ${whenText(r)}</p>
+    <div class="cm-list">${pool.map(({x})=>`<button class="cm-row" data-act="assignDo" data-id="${r.id}" data-drv="${x.id}" data-date="${d}"><span class="rw-avatar sm">${esc(String(x.name).slice(0,1))}</span><span><b>${esc(x.name)}</b><span class="hint"> · ${esc(x.area||'')}${x.accessible?' · רכב נגיש':''}${(x.avDays||[]).length&&fitsAvail(x,d,r.time)?' · זמין/ה בחלון':''}</span></span><span class="hint">${r.schedule==='weekly'?'כנהג/ת קבוע/ה':'שיבוץ'} ←</span></button>`).join('')||'<div class="empty">אין נהגים מאומתים פעילים.</div>'}</div>
+    <p class="hint">אחרי השיבוץ כדאי להתקשר לנהג/ת ולוודא שזה מתאים.</p><div class="actions"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
+}
+/* ===== סטטיסטיקה ===== */
+function renderStats(){
+  const box=$('#aStatsPane');if(!box||!adminOn)return;
+  const doneRides=[];for(const r of requests){if(r.status==='done')doneRides.push({r,d:r.date,drv:r.driverId});for(const [dt,c] of Object.entries(r.covers||{}))if(c.done)doneRides.push({r,d:dt,drv:c.driverId});}
+  const past=drivers.reduce((n,d)=>n+(d.pastRides||0),0);
+  const completed=doneRides.length+past;
+  const past1=requests.filter(r=>r.status!=='cancelled'&&r.schedule!=='weekly'&&r.date&&r.date<todayStr());
+  const covered=past1.filter(r=>r.driverId||Object.keys(r.covers||{}).length).length;
+  const claimH=requests.filter(r=>r.takenAt&&r.createdAt).map(r=>(r.takenAt-r.createdAt)/36e5).sort((a,b)=>a-b);
+  const med=claimH.length?Math.round(claimH[Math.floor(claimH.length/2)]):null;
+  const canc=requests.filter(r=>r.status==='cancelled').length,late=drivers.reduce((n,d)=>n+(d.lateCancels||[]).length,0);
+  const weeks=[];for(let i=7;i>=0;i--){const e=new Date();e.setHours(0,0,0,0);e.setDate(e.getDate()-i*7);const s=new Date(e);s.setDate(e.getDate()-7);const n=doneRides.filter(x=>{const t=new Date(x.d+'T12:00');return t>s&&t<=e;}).length;weeks.push({l:`${e.getDate()}.${e.getMonth()+1}`,n});}
+  const mx=Math.max(1,...weeks.map(w=>w.n));
+  const count=(arr)=>Object.entries(arr.reduce((m,k)=>{if(k)m[k]=(m[k]||0)+1;return m;},{})).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const live=requests.filter(r=>r.status!=='cancelled');
+  const list=(title,rows)=>`<div class="st-card"><h3>${title}</h3>${rows.length?rows.map(([k,v])=>`<div class="st-row"><span>${esc(k)}</span><b>${v}</b></div>`).join(''):'<p class="hint">אין עדיין נתונים</p>'}</div>`;
+  const tile=(n,t)=>`<div class="stat"><div class="n">${n}</div><div class="t">${t}</div></div>`;
+  box.innerHTML=`<div class="stats">${tile(completed,'נסיעות שהושלמו')}${tile(past1.length?Math.round(covered/past1.length*100)+'%':'-','מהנסיעות שעבר זמנן קיבלו נהג/ת')}${tile(med==null?'-':med+' שע׳','זמן חציוני עד שנהג/ת לוקח/ת')}${tile(urgentRides().length,'בלי נהג ב-24 השעות הקרובות')}${tile(requests.length?Math.round(canc/requests.length*100)+'%':'0%','שיעור ביטולים')}${tile(late,'ביטולים מאוחרים של נהגים')}${tile(completed,'שעות התנדבות (הערכה: שעה לנסיעה)')}${tile(drivers.filter(d=>d.verification?.status==='approved').length,'נהגים מאומתים')}</div>
+    <div class="st-card"><h3>נסיעות שהושלמו לפי שבוע</h3><div class="st-bars">${weeks.map(w=>`<div class="st-bar"><b>${w.n}</b><i style="height:${Math.round(w.n/mx*100)}%"></i><span>${w.l}</span></div>`).join('')}</div><p class="hint">כל עמודה היא שבוע שמסתיים בתאריך שמתחתיה. נסיעות מלפני המערכת לא נכללות.</p></div>
+    <div class="st-grid">${list('ערי מוצא מובילות',count(live.map(r=>r.fromCity)))}${list('מי מבקש',count(live.map(r=>r.kind==='org'?r.orgName:'מבקשים פרטיים')))}${list('צרכים מיוחדים',count(live.flatMap(r=>(r.needs||[]).filter(k=>k!=='returnTrip').map(k=>(NEEDS.find(n=>n.k===k)||{}).t))))}${list('מטרת הנסיעה',count(live.map(r=>PURPOSES[r.purpose])))}${list('הנהגים הפעילים ביותר',drivers.map(d=>[d.name,(d.pastRides||0)+doneRides.filter(x=>x.drv===d.id).length]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]).slice(0,6))}</div>`;
+}
+/* ===== דף הבית: מונה והשפעה ===== */
+function renderHomeLive(){
+  const el=$('#hmLive');if(!el)return;const n=boardItems().length;
+  el.hidden=!n;el.innerHTML=`<i></i>${n===1?'נסיעה אחת מחכה':n+' נסיעות מחכות'} עכשיו לנהג/ת`;
+  const done=requests.filter(r=>r.status==='done').length+requests.reduce((m,r)=>m+Object.values(r.covers||{}).filter(c=>c.done).length,0)+allDrivers.reduce((m,d)=>m+(d.pastRides||0),0);
+  const ver=allDrivers.filter(d=>d.verification?.status==='approved').length;
+  $('#hmImpact').innerHTML=`<div><b>${done}</b><span>נסיעות הושלמו</span></div><div><b>${ver}</b><span>נהגים מאומתים</span></div><div><b>${done}</b><span>שעות התנדבות</span></div>`;
+}
+function callbackDlg(){
+  openDlg(`<h2 style="margin-top:0">בקשת שיחה חוזרת</h2><p>משאירים שם וטלפון, ומישהו מהמוקד יחזור אליכם ויפרסם את הנסיעה בשבילכם.</p>
+    <form id="cbForm" novalidate><div class="field"><label class="lbl req">שם</label><input name="name" type="text" maxlength="60" autocomplete="name"></div>
+    <div class="field" style="margin-top:10px"><label class="lbl req">טלפון</label><input name="phone" type="tel" inputmode="tel" autocomplete="tel"></div>
+    <div class="field" style="margin-top:10px"><label class="lbl">לאן צריך להגיע? (לא חובה)</label><input name="message" type="text" maxlength="200"></div>
+    <p class="err" id="cbErr"></p><div class="actions"><button class="btn brand" type="submit">חזרו אליי</button><button class="btn ghost" type="button" data-act="closeDlg">ביטול</button></div></form>`);
+}
+/* ===== נגישות ===== */
+const A11Y_KEY='nb-a11y';let a11y={};try{a11y=JSON.parse(localStorage.getItem(A11Y_KEY)||'{}');}catch(e){}
+function applyA11y(){const c=document.documentElement.classList;c.toggle('a-big',!!a11y.big);c.toggle('a-contrast',!!a11y.contrast);c.toggle('a-still',!!a11y.still);}
+function a11yDlg(){const t=(k,l)=>`<label class="a11y-row"><input type="checkbox" data-a11y="${k}" ${a11y[k]?'checked':''}> ${l}</label>`;
+  openDlg(`<h2 style="margin-top:0">התאמות נגישות</h2>${t('big','טקסט גדול יותר')}${t('contrast','ניגודיות גבוהה')}${t('still','בלי אנימציות')}
+    <p class="hint">בבקשה הפשוטה יש גם כפתור "להקריא לי", ואפשר לבקש נסיעה בדיבור.</p><div class="actions"><button class="btn brand" data-act="closeDlg">סיום</button></div>`);}
+document.addEventListener('change',e=>{const k=e.target.dataset?.a11y;if(!k)return;a11y[k]=e.target.checked;try{localStorage.setItem(A11Y_KEY,JSON.stringify(a11y));}catch(x){}applyA11y();});
+applyA11y();
+
+/* ===== בקשה פשוטה: שאלה אחת בכל מסך ===== */
+const EZ_KEY='nb-easy-profile';
+let ezProf={};try{ezProf=JSON.parse(localStorage.getItem(EZ_KEY)||'{}');}catch(e){}
+const saveEzProf=()=>{try{localStorage.setItem(EZ_KEY,JSON.stringify(ezProf));}catch(e){}};
+let ez={step:'to'};
+const HOSPITALS={'איכילוב':'תל אביב-יפו','שיבא':'רמת גן','תל השומר':'רמת גן','בילינסון':'פתח תקווה','שניידר':'פתח תקווה','וולפסון':'חולון','אסף הרופא':'באר יעקב','שמיר':'באר יעקב','מאיר':'כפר סבא','לניאדו':'נתניה','קפלן':'רחובות','ברזילי':'אשקלון','סורוקה':'באר שבע','רמב"ם':'חיפה','רמבם':'חיפה','בני ציון':'חיפה','כרמל':'חיפה','הלל יפה':'חדרה','העמק':'עפולה','פוריה':'טבריה','זיו':'צפת','הדסה עין כרם':'ירושלים','הדסה הר הצופים':'ירושלים','שערי צדק':'ירושלים','אסותא':'תל אביב-יפו','מעייני הישועה':'בני ברק','לוינשטיין':'רעננה'};
+const CITIES=['תל אביב-יפו','ירושלים','חיפה','ראשון לציון','פתח תקווה','אשדוד','נתניה','באר שבע','בני ברק','חולון','רמת גן','אשקלון','רחובות','בת ים','בית שמש','כפר סבא','הרצליה','חדרה','מודיעין','לוד','רמלה','נצרת','רעננה','רהט','הוד השרון','גבעתיים','קריית גת','נהריה','עפולה','קריית אתא','יבנה','אום אל-פחם','אילת','ראש העין','עכו','אלעד','רמת השרון','כרמיאל','טבריה','טייבה','קריית מוצקין','שפרעם','נס ציונה','קריית ביאליק','קריית ים','קריית אונו','ביתר עילית','דימונה','נתיבות','צפת','אור יהודה','גבעת שמואל','באר יעקב','יהוד-מונוסון','שדרות','אופקים','מעלה אדומים','טירת כרמל','מגדל העמק','קריית שמונה','גדרה','זכרון יעקב','כפר יונה','אריאל'];
+const HEB_NUM={'אחת':1,'אחד':1,'שתיים':2,'שתים':2,'שניים':2,'שלוש':3,'ארבע':4,'חמש':5,'שש':6,'שבע':7,'שמונה':8,'תשע':9,'עשר':10,'אחת עשרה':11,'אחת-עשרה':11,'שתים עשרה':12,'שתיים עשרה':12};
+const DAYN=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+function parseUtter(t){
+  const out={};t=' '+t.replace(/[.,!?]/g,' ').replace(/\s+/g,' ')+' ';
+  const now=new Date();
+  if(/ היום /.test(t))out.date=todayStr();
+  else if(/ מחרתיים /.test(t))out.date=addDays(2);
+  else if(/ מחר /.test(t))out.date=addDays(1);
+  else{for(let i=0;i<7;i++){if(new RegExp(' (ב|ביום )'+DAYN[i]+' ').test(t)||t.includes(' יום '+DAYN[i]+' ')){let d=new Date();for(let k=1;k<=7;k++){d=new Date();d.setDate(now.getDate()+k);if(d.getDay()===i)break;}out.date=isoOf(d);break;}}}
+  let hr=null,mn=0;const m=t.match(/(\d{1,2})(?:[:.](\d{2}))?/);
+  if(m){hr=+m[1];mn=m[2]?+m[2]:0;}
+  else{for(const w of Object.keys(HEB_NUM).sort((a,b)=>b.length-a.length)){if(new RegExp(' ב?'+w+' ').test(t)||t.includes(' ב'+w+' ')){hr=HEB_NUM[w];break;}}}
+  if(hr!=null){if(/ וחצי /.test(t))mn=30;else if(/ ורבע /.test(t))mn=15;
+    if((/(אחר הצהריים|אחרי הצהריים|בערב|בצהריים)/.test(t)&&hr<12)||(hr>=1&&hr<=6&&!/בבוקר/.test(t)))hr+=12;
+    if(hr>=0&&hr<=23)out.time=`${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;}
+  for(const k of Object.keys(HOSPITALS).sort((a,b)=>b.length-a.length)){if(new RegExp('[ ]([לבה]|לבית החולים |בית החולים |בית חולים )?'+k.replace(/[.*+?^${}()|[\]\\"]/g,'\\$&')+'[ ]').test(t)){out.toPlace='בית החולים '+k.replace('רמבם','רמב"ם');out.toCity=HOSPITALS[k];break;}}
+  if(!out.toPlace){if(/קופת חולים|קופ"ח|לקופה/.test(t))out.toPlace='קופת חולים';else if(/דיאליזה/.test(t))out.toPlace='מכון דיאליזה';else if(/פיזיותרפיה/.test(t))out.toPlace='פיזיותרפיה';else if(/רופא/.test(t))out.toPlace='רופא/ה';else if(/ הביתה /.test(t)){out.toPlace='הבית';out.toCity=ezProf.fromCity||'';}}
+  if(!out.toCity){for(const c of CITIES.slice().sort((a,b)=>b.length-a.length)){const base=c.split('-')[0];if(t.includes(' ל'+base)||t.includes(' ב'+base)||t.includes(' '+base+' ')){out.toCity=c;break;}}}
+  if(out.toPlace&&!out.toCity)out.toCity=ezProf.fromCity||'';
+  return out;
+}
+window.__nbParse=t=>parseUtter(t);
+let rec=null,recOn=false;
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('הדיבור עובד בדפדפן כרום. אפשר לבחור מהכפתורים');return;}
+  if(recOn){try{rec.stop();}catch(e){}return;}
+  rec=new SR();rec.lang='he-IL';rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onstart=()=>{recOn=true;renderEasy();};
+  rec.onend=()=>{recOn=false;renderEasy();};
+  rec.onerror=e=>{recOn=false;toast(e.error==='not-allowed'?'צריך לאשר לדפדפן להשתמש במיקרופון':'לא שמענו טוב. אפשר לנסות שוב');};
+  rec.onresult=e=>{const txt=e.results[0][0].transcript;applyUtter(txt);};
+  try{rec.start();}catch(e){toast('לא הצלחנו להפעיל את המיקרופון');}
+}
+function applyUtter(txt){
+  const p=parseUtter(txt);ez.heard=txt;
+  Object.assign(ez,Object.fromEntries(Object.entries(p).filter(([,v])=>v)));
+  if(ez.toPlace&&!ez.toCity){ez.step='to';renderEasy();setTimeout(()=>{const c=$('#ezCity');if(c){c.focus();c.placeholder='באיזו עיר?';}},50);toast('הבנו לאן. באיזו עיר?');return;}
+  if(ez.toPlace||ez.toCity){ez.step=!ezProf.fromCity?'from':(ez.date&&ez.time?'needs':'when');}
+  renderEasy();
+}
+function speak(text){
+  if(!('speechSynthesis' in window)){toast('הקראה לא נתמכת בדפדפן הזה');return;}
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='he-IL';u.rate=.9;
+  const v=speechSynthesis.getVoices().find(x=>/^he|iw/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u);
+}
+function ezDays(){const out=[];for(let i=0;out.length<6&&i<12;i++){const iso=addDays(i);if(isRestDay(iso))continue;const d=new Date(iso+'T12:00');out.push({iso,l:i===0?'היום':i===1?'מחר':'יום '+DAYN[d.getDay()],s:`${d.getDate()}.${d.getMonth()+1}`});}return out;}
+const EZ_STEPS=['to','from','when','needs','who','confirm'];
+function ezNeedsWho(){const known=pvts.find(x=>x.id===cleanPhone(ezProf.phone||''));return !(ezProf.contactName&&ezProf.phone)||(ezProf.kind==='private'&&!(known&&known.status==='approved')&&!ezProf.verified);}
+function ezSay(){
+  const s=ez.step;
+  return s==='to'?'לאן נוסעים? לוחצים על המיקרופון ואומרים, למשל: מחר בתשע לקופת חולים. או בוחרים אחד הכפתורים.'
+   :s==='from'?'מאיפה יוצאים? כותבים עיר ומקום, ונזכור לפעם הבאה.'
+   :s==='when'?'מתי? בוחרים יום ושעה. אם צריך גם חזרה, מסמנים.'
+   :s==='needs'?'מה חשוב שהנהג ידע? מסמנים מה שמתאים, ולוחצים המשך.'
+   :s==='who'?'כמה פרטים לתיאום: שם וטלפון.'
+   :`הכול נכון? ${fmtDate(ez.date)||''} בשעה ${ez.time||''}, מ${ezProf.fromCity||''} ל${ez.toPlace||''} ${ez.toCity||''}. אם כן, לוחצים כן, לפרסם.`;
+}
+function renderEasy(){
+  const box=$('#ezBox');if(!box)return;const s=ez.step;
+  const top=`<div class="ez-top">${s!=='to'?'<button class="linkbtn" data-act="ezBack">← חזרה</button>':'<span></span>'}<button class="ez-say" data-act="ezSpeak"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>להקריא לי</button></div>
+    <div class="ez-dots">${EZ_STEPS.filter(x=>x!=='from'||!ezProf.fromCity||ez.step==='from').filter(x=>x!=='who'||ezNeedsWho()).map(x=>`<i class="${x===s?'on':''}"></i>`).join('')}</div>`;
+  let body='';
+  if(s==='to'){
+    const last=ezProf.lastTo;const sr=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
+    body=`<h1>לאן נוסעים?</h1>
+      ${sr?`<button class="ez-mic ${recOn?'on':''}" data-act="ezMic" aria-label="ללחוץ ולדבר"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <p class="ez-hint">${recOn?'מקשיבים… אפשר לדבר':'לוחצים ואומרים, למשל:<br><b>"מחר בתשע לקופת חולים"</b>'}</p>`:'<p class="ez-hint">בוחרים לאן:</p>'}
+      ${ez.heard?`<p class="ez-heard">שמענו: "${esc(ez.heard)}"</p>`:''}
+      <div class="ez-opts">
+        ${last?`<button class="ez-opt wide" data-act="ezTo" data-place="${esc(last.place)}" data-city="${esc(last.city)}">כמו בפעם שעברה: ${esc(last.place)}${last.city?', '+esc(last.city):''}</button>`:''}
+        <button class="ez-opt" data-act="ezTo" data-place="קופת חולים" data-city="">קופת חולים</button>
+        <button class="ez-opt" data-act="ezTo" data-place="בית חולים" data-city="">בית חולים</button>
+        <button class="ez-opt" data-act="ezTo" data-place="בית המשפחה" data-city="">בית המשפחה</button>
+        ${ezProf.fromCity?`<button class="ez-opt" data-act="ezTo" data-place="הבית" data-city="${esc(ezProf.fromCity)}">הביתה</button>`:`<button class="ez-opt" data-act="ezTo" data-place="טיפול / מרפאה" data-city="">טיפול / מרפאה</button>`}
+      </div>
+      <div class="ez-search"><label class="lbl">או כותבים: בית חולים, מקום או עיר</label>
+        <div class="ez-row"><input id="ezPlace" type="text" list="ezHosp" placeholder="למשל: איכילוב, או מכון דיאליזה" value="${esc(ez.toPlace||'')}"><input id="ezCity" type="text" list="ezCities" placeholder="עיר" value="${esc(ez.toCity||'')}"></div>
+        <datalist id="ezHosp">${Object.keys(HOSPITALS).map(k=>`<option value="בית החולים ${k}">`).join('')}</datalist>
+        <datalist id="ezCities">${CITIES.map(c=>`<option value="${c}">`).join('')}</datalist>
+        <button class="btn brand ez-next" data-act="ezToType">המשך</button></div>`;
+  }else if(s==='from'){
+    body=`<h1>מאיפה יוצאים?</h1><p class="ez-hint">פעם אחת, ונזכור לפעם הבאה.</p>
+      <div class="ez-search"><div class="ez-row"><input id="ezFromCity" type="text" list="ezCities2" placeholder="עיר" value="${esc(ezProf.fromCity||'')}"><input id="ezFromPlace" type="text" placeholder="שכונה או נקודה כללית" value="${esc(ezProf.fromPlace||'')}"></div>
+      <datalist id="ezCities2">${CITIES.map(c=>`<option value="${c}">`).join('')}</datalist>
+      <p class="hint">הכתובת המדויקת נמסרת רק לנהג שלוקח את הנסיעה.</p><button class="btn brand ez-next" data-act="ezFrom">המשך</button></div>`;
+  }else if(s==='when'){
+    const days=ezDays();const hrs=[];for(let i=7;i<=19;i++)hrs.push(String(i).padStart(2,'0'));
+    const [hh,mm]=(ez.time||':').split(':');
+    body=`<h1>מתי?</h1><div class="ez-grid d">${days.map(d=>`<button class="ez-chip ${ez.date===d.iso?'on':''}" data-act="ezDate" data-v="${d.iso}"><b>${d.l}</b><small>${d.s}</small></button>`).join('')}</div>
+      <h2 class="ez-h2">באיזו שעה צריך לצאת?</h2><div class="ez-grid h">${hrs.map(x=>`<button class="ez-chip ${hh===x?'on':''}" data-act="ezHour" data-v="${x}">${x}:00</button>`).join('')}</div>
+      <div class="ez-seg"><button class="${mm!=='30'?'on':''}" data-act="ezMin" data-v="00">בדיוק</button><button class="${mm==='30'?'on':''}" data-act="ezMin" data-v="30">וחצי</button></div>
+      <label class="ez-check"><input type="checkbox" data-act="ezRet" ${ez.ret?'checked':''}> צריך גם חזרה</label>
+      ${ez.ret?`<div class="ez-grid h">${hrs.filter(x=>!hh||x>hh).map(x=>`<button class="ez-chip ${(ez.retTime||'').startsWith(x)?'on':''}" data-act="ezRetH" data-v="${x}">${x}:00</button>`).join('')}</div>`:''}
+      <button class="btn brand ez-next" data-act="ezWhen" ${ez.date&&ez.time&&(!ez.ret||ez.retTime)?'':'disabled'}>המשך</button>`;
+  }else if(s==='needs'){
+    const nd=ez.needs||ezProf.needs||[];ez.needs=nd;
+    body=`<h1>מה חשוב שהנהג ידע?</h1><p class="ez-hint">מסמנים מה שמתאים. נזכור לפעם הבאה.</p>
+      <div class="ez-grid n">${NEEDS.filter(n=>n.k!=='returnTrip').map(n=>`<button class="ez-tile ${nd.includes(n.k)?'on':''}" data-act="ezNeed" data-v="${n.k}">${n.t}</button>`).join('')}</div>
+      <h2 class="ez-h2">למה הנסיעה? (לא חובה)</h2><div class="ez-grid p">${Object.entries(PURPOSES).map(([k,v])=>`<button class="ez-chip ${ez.purpose===k?'on':''}" data-act="ezPurp" data-v="${k}">${v}</button>`).join('')}</div>
+      <button class="btn brand ez-next" data-act="ezNeedsNext">המשך</button>`;
+  }else if(s==='who'){
+    const known=pvts.find(x=>x.id===cleanPhone(ezProf.phone||''));const needVer=!(known&&known.status==='approved');
+    body=`<h1>פרטים לתיאום</h1><p class="ez-hint">פעם אחת, ונזכור לפעם הבאה. הנהג יקבל את הטלפון רק אחרי שילקח את הנסיעה.</p>
+      <div class="ez-search"><div class="ez-row"><input id="ezName" type="text" placeholder="שם הנוסע/ת" autocomplete="name" value="${esc(ezProf.contactName||'')}"><input id="ezPhone" type="tel" inputmode="tel" placeholder="טלפון" autocomplete="tel" value="${esc(ezProf.phone||'')}"></div>
+      ${needVer?`<div class="priv-box" style="margin-top:12px"><b>אימות קצר בפעם הראשונה</b><p class="hint" style="margin:4px 0 8px">כדי שההתנדבות תגיע למי שבאמת צריך. נשמרות רק 4 הספרות האחרונות של תעודת הזהות.</p>
+        <div class="ez-row"><input id="ezTz" type="text" inputmode="numeric" maxlength="9" placeholder="תעודת זהות"><select id="ezElig"><option value="">למה צריך הסעה?</option><option value="age">גיל 70 ומעלה</option><option value="disability">מוגבלות או נכות</option><option value="medical">טיפול רפואי קבוע</option><option value="other">אחר</option></select></div>
+        <label class="ez-check" style="margin-top:8px"><input type="checkbox" id="ezDecl"> אין לנוסע/ת דרך סבירה אחרת להגיע</label></div>`:''}
+      <p class="err" id="ezErr"></p><button class="btn brand ez-next" data-act="ezWho">המשך</button>
+      <p class="hint" style="text-align:center">עמותה או מסגרת? <button class="linkbtn" data-act="ntab" data-tab="post">לטופס המלא</button></p></div>`;
+  }else{
+    const nd=(ez.needs||[]).map(k=>(NEEDS.find(n=>n.k===k)||{}).t).filter(Boolean);
+    body=`<h1>הכול נכון?</h1><div class="ez-sum">
+      <div><span>מתי</span><b>${fmtDate(ez.date)} · ${esc(ez.time)}${ez.ret?` · חזרה ב-${esc(ez.retTime)}`:''}</b></div>
+      <div><span>מאיפה</span><b>${esc(ezProf.fromPlace||'')}${ezProf.fromPlace?', ':''}${esc(ezProf.fromCity||'')}</b></div>
+      <div><span>לאן</span><b>${esc(ez.toPlace||'')}${ez.toPlace&&ez.toCity?', ':''}${esc(ez.toCity||'')}</b></div>
+      ${nd.length?`<div><span>חשוב לדעת</span><b>${nd.join(' · ')}</b></div>`:''}${ez.purpose?`<div><span>מטרה</span><b>${PURPOSES[ez.purpose]}</b></div>`:''}
+      <div><span>לתיאום</span><b>${esc(ezProf.contactName||'')} · <span dir="ltr">${esc(ezProf.phone||'')}</span></b></div></div>
+      <p class="err" id="ezErr"></p>
+      <button class="btn brand ez-next big" data-act="ezPublish">כן, לפרסם</button><button class="btn ghost ez-next" data-act="ezFix">לתקן</button>
+      <p class="hint" style="text-align:center">בלחיצה על "כן" אני מאשר/ת את <a href="#terms">התקנון</a> ושיתוף פרטי הנסיעה עם נהג/ת מתנדב/ת.</p>`;
+  }
+  box.innerHTML=top+body+`<p class="ez-foot">מעדיפים לדבר עם מישהו? <button class="linkbtn" data-act="callbackDlg">המוקד יחזור אליכם ויפרסם בשבילכם</button><br><button class="linkbtn" data-act="ntab" data-tab="post">לטופס המלא (עמותות ונסיעות קבועות)</button></p>`;
+}
+function ezGo(step){ez.step=step;renderEasy();document.getElementById('ezBox')?.scrollIntoView({block:'start'});}
+function ezAfterTo(){ezGo(!ezProf.fromCity?'from':'when');}
+function ezAfterNeeds(){ezGo(ezNeedsWho()?'who':'confirm');}
+async function ezPublish(){
+  const f=$('#needForm'),err=$('#ezErr');
+  const setv=(n,v)=>{const el=f.elements[n];if(el)el.value=v??'';};
+  const kind=ezProf.kind||'private';
+  f.querySelector(`input[name=kind][value=${kind}]`).checked=true;f.querySelector('input[name=schedule][value=once]').checked=true;syncNeedForm();
+  setv('orgName',ezProf.orgName||'');setv('contactName',ezProf.contactName);setv('phone',ezProf.phone);
+  setv('fromCity',ezProf.fromCity);setv('fromPlace',ezProf.fromPlace||'');setv('toCity',ez.toCity);setv('toPlace',ez.toPlace||'');
+  setv('date',ez.date);setv('time',ez.time);setv('passengers',1);setv('notes','');setv('purpose',ez.purpose||'');
+  f.querySelectorAll('input[name=needs]').forEach(x=>x.checked=(ez.needs||[]).includes(x.value)||(x.value==='returnTrip'&&!!ez.ret));syncNeedForm();
+  setv('returnTime',ez.ret?ez.retTime:'');
+  if(ez.tz){setv('tz',ez.tz);setv('elig',ez.elig);const d=f.querySelector('[name=decl]');if(d)d.checked=true;}
+  const t=f.querySelector('[name=terms]');if(t)t.checked=true;
+  $('#needErr').textContent='';
+  await submitNeed({preventDefault(){},target:f});
+  const e2=$('#needErr').textContent;
+  if(e2){err.textContent=e2;return;}
+  ezProf.lastTo={place:ez.toPlace||'',city:ez.toCity||''};ezProf.needs=ez.needs||[];ezProf.verified=true;saveEzProf();
+  ez={step:'to'};renderEasy();
+  setTabs('ntab','mine',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});renderReqMine();toast('פורסם! נעדכן כשנהג/ת ייקח/תיקח את הנסיעה');
 }
 
 /* ===== עריכת נסיעה (ניהול) ===== */
@@ -1060,11 +1294,12 @@ function renderAdmin(){
       ${r.privPending?'<button class="tag need linkbtn" data-act="statnav" data-go="pvt">ממתין לאימות מבקש</button>':''}${r.access==='approved'?'<span class="tag">נהגים מאושרי עמותה</span>':''}${r.isReturn?'<span class="tag">נסיעת חזור</span>':''}${r.status==='done'?`<span class="tag ${r.confirmed===true?'':'need'}">${r.confirmed===true?'✓ המבקש אישר':r.confirmed===false?'✗ המבקש דיווח שלא בוצעה':'מחכה לאישור המבקש'}</span>`:''}</div>
     ${occ.length&&(r.status==='open'||r.status==='taken')?`<div class="occ">${occ.map(d=>{const dr=driverFor(r,d);return dr?`<div class="got"><span>${fmtDate(d)}</span><button class="linkbtn" data-act="gotoDriver" data-id="${dr.driverId}">✓ ${esc(dr.driverName)}${dr.cover?' (חד-פעמי)':''}</button></div>`:`<div class="miss"><span>${fmtDate(d)}</span><span>אין נהג</span></div>`;}).join('')}</div>`:''}
     ${r.notes?`<div class="meta" style="margin-top:6px">${esc(r.notes)}</div>`:''}
+    ${r.purpose?`<div class="meta" style="margin-top:6px">מטרה: ${PURPOSES[r.purpose]||''}</div>`:''}${r.stages&&Object.keys(r.stages).length?`<div class="meta" style="margin-top:6px">שלב: ${(STAGES.find(x=>x[0]===Object.values(r.stages).slice(-1)[0])||[])[1]||''}</div>`:''}
     ${r.feedback?`<div class="meta" style="margin-top:6px">${r.feedback.score>0?'משוב חיובי':'משוב שלילי'} מהמבקש${r.feedback.text?`: ${esc(r.feedback.text)}`:''}</div>`:''}
     ${Object.entries(r.covers||{}).flatMap(([dt,c])=>[c.feedback&&`${c.feedback.score>0?'משוב חיובי':'משוב שלילי'} מהמבקש (${fmtDate(dt)})${c.feedback.text?`: ${esc(c.feedback.text)}`:''}`,c.driverFeedback&&`${c.driverFeedback.score>0?'משוב חיובי':'משוב שלילי'} מהנהג/ת (${fmtDate(dt)})${c.driverFeedback.text?`: ${esc(c.driverFeedback.text)}`:''}`]).filter(Boolean).map(t=>`<div class="meta" style="margin-top:6px">${t}</div>`).join('')}
     ${r.driverFeedback?`<div class="meta" style="margin-top:6px">${r.driverFeedback.score>0?'משוב חיובי':'משוב שלילי'} מהנהג/ת${r.driverFeedback.text?`: ${esc(r.driverFeedback.text)}`:''}</div>`:''}
     <div class="actions">
-      <button class="btn ghost sm" data-act="aedit" data-id="${r.id}">✏️ עריכה</button>
+      ${r.status==='open'&&!isExpired(r)?`<button class="btn brand sm" data-act="assignDlg" data-id="${r.id}">שיבוץ נהג/ת</button>`:''}<button class="btn ghost sm" data-act="aedit" data-id="${r.id}">עריכה</button>
       ${r.status==='open'||r.status==='taken'?`<button class="btn danger sm" data-act="acancel" data-id="${r.id}">ביטול</button>`:`<button class="btn ghost sm" data-act="areopen" data-id="${r.id}">החזרה ללוח</button>`}
       ${r.status==='taken'?`<button class="btn ghost sm" data-act="release" data-id="${r.id}">שחרור הנהג הקבוע</button>`:''}
     </div></article>`;}).join(''):'<div class="empty">אין נסיעות בסינון הזה.</div>';
@@ -1102,7 +1337,7 @@ function renderAdmin(){
     ${v.status==='pending'?`<div class="reject-row"><button class="btn accent sm" data-act="approve" data-id="${d.id}">✓ אימות ע״י נוסעים ביחד</button><input type="text" data-reason placeholder="סיבה לדחייה (תוצג לנהג/ת)"><button class="btn danger sm" data-act="reject" data-id="${d.id}">החזרה לתיקון</button></div>`:''}
     <div class="actions">${v.status==='approved'?`<input type="text" data-reason placeholder="סיבה" style="max-width:200px"><button class="btn ghost sm" data-act="reject" data-id="${d.id}">ביטול אימות</button>`:''}
       <button class="btn ${d.active?'ghost':'accent'} sm" data-act="toggleDriver" data-id="${d.id}">${d.active?'השהיה':'הפעלה'}</button></div></article>`;}).join(''):'<div class="empty">אין נהגים בסינון הזה.</div>';
-  renderReports();renderOrgs();renderPvts();renderContacts();
+  renderReports();renderOrgs();renderPvts();renderContacts();renderStats();
 }
 const REP_TYPES={abuse:'חשד לניצול (לא נראה שצריך הסעה)',passenger_attitude:'יחס לא ראוי כלפיי',wrong_details:'פרטים לא מדויקים בבקשה',driver_late:'הנהג/ת איחר/ה',driver_no_show:'הנהג/ת לא הגיע/ה',attitude:'יחס לא נאות',no_show_passenger:'הנוסע/ת לא הגיע/ה',safety:'תאונה או אירוע חריג',other:'אחר'};
 const DRIVER_FAULT=['driver_late','driver_no_show','attitude'];
@@ -1236,7 +1471,7 @@ document.addEventListener('click',async e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const {act,id,date}=el.dataset;
   try{switch(act){
-    case 'ntab':setTabs('ntab',el.dataset.tab,{post:'#nPost',mine:'#nMine'});renderReqMine();break;
+    case 'ntab':setTabs('ntab',el.dataset.tab,{easy:'#nEasy',post:'#nPost',mine:'#nMine'});renderReqMine();break;
     case 'dtab':e.preventDefault();driverTab=el.dataset.tab;setTabs('dtab',driverTab,{open:'#openPane',mine:'#minePane',rewards:'#rewardsPane',profile:'#profilePane'});if(driverTab==='profile')renderProfile();if(driverTab==='rewards')renderRewards();break;
     case 'bfilter':boardFilter=el.dataset.f;renderBoard();break;
     case 'claimSeries':{
@@ -1276,20 +1511,60 @@ document.addEventListener('click',async e=>{
       await api.update('drivers',id,{orgApprovals:[...new Set([...(d.orgApprovals||[]),o])],orgRequests:(d.orgRequests||[]).filter(x=>x!==o)});notify('drv:'+id,`${o} אישרה אותך. עכשיו אפשר לקחת גם את הנסיעות שלה.`,'#drive');toast(`נוסף אישור של ${o}`);break;}
     case 'orgRevoke':{const d=drivers.find(x=>x.id===id);await api.update('drivers',id,{orgApprovals:(d.orgApprovals||[]).filter(x=>x!==el.dataset.org)});break;}
     case 'statnav':{const g=el.dataset.go;
-      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
-      else if(g==='cts'){setTabs('atab','cts',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
-      else if(g==='pvt'){pFilter='pending';setTabs('atab','pvt',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
-      else if(g==='orgs'){oFilter='pending';setTabs('atab','orgs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
-      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
-      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});}
+      if(['missing','seeking','urgent'].includes(g)){aFilter=g;aQuery='';$('#aSearch').value='';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});}
+      else if(g==='cts'){setTabs('atab','cts',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});}
+      else if(g==='pvt'){pFilter='pending';setTabs('atab','pvt',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});}
+      else if(g==='orgs'){oFilter='pending';setTabs('atab','orgs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});}
+      else if(g==='reports'){rFilter='open';repDriver=null;setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});}
+      else{dFilter=g;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});}
       renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
-    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
-    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});renderAdmin();break;}
+    case 'gotoDriver':{dFilter='all';hiDriver=id;setTabs('atab','drvs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});renderAdmin();setTimeout(()=>document.getElementById('drv-'+id)?.scrollIntoView({behavior:'smooth',block:'center'}),50);setTimeout(()=>{hiDriver=null;},3000);break;}
+    case 'ridesOf':case 'filterQ':{aQuery=el.dataset.q;$('#aSearch').value=aQuery;aFilter='all';setTabs('atab','reqs',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});renderAdmin();document.querySelector('#dash .tabs').scrollIntoView({behavior:'smooth',block:'start'});break;}
+    case 'repsOf':{repDriver=id||null;rFilter='all';setTabs('atab','reps',{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});renderAdmin();break;}
     case 'rfilter':rFilter=el.dataset.f;renderReports();break;
     case 'repDone':await api.update('reports',id,{status:'handled',handledAt:Date.now()});toast('סומן כטופל');break;
     case 'suspendDriver':{const d=drivers.find(x=>x.id===id);if(d&&d.active===false){toast('הנהג/ת כבר מושהה/ית');break;}if(!armed(el,'להשהות? לחצו שוב'))return;await api.update('drivers',id,{active:false});notify('drv:'+id,'החשבון שלך הושהה זמנית. הצוות ייצור איתך קשר.','#drive');toast('הנהג/ת הושהה/תה');break;}
     case 'bell':{const pn=$('#bellPanel');pn.style.top=(el.getBoundingClientRect().bottom+8)+'px';pn.hidden=!pn.hidden;renderBell();break;}
+
+    case 'ezMic':startVoice();break;
+    case 'ezSpeak':speak(ezSay());break;
+    case 'ezBack':{const order=EZ_STEPS.filter(x=>(x!=='from'||!ezProf.fromCity)&&(x!=='who'||ezNeedsWho()));const i=order.indexOf(ez.step);ezGo(order[Math.max(0,i-1)]);break;}
+    case 'ezTo':{ez.toPlace=el.dataset.place;ez.toCity=el.dataset.city||'';if(!ez.toCity){ez.step='to';renderEasy();const c=$('#ezCity');c.focus();c.placeholder='באיזו עיר?';toast('באיזו עיר?');break;}ezAfterTo();break;}
+    case 'ezToType':{const pl=$('#ezPlace').value.trim();let c=$('#ezCity').value.trim();const hk=Object.keys(HOSPITALS).find(k=>pl.includes(k));if(!c&&hk)c=HOSPITALS[hk];if(!pl&&!c){toast('נא לכתוב לאן');break;}if(!c){toast('באיזו עיר?');$('#ezCity').focus();break;}ez.toPlace=pl;ez.toCity=c;ezAfterTo();break;}
+    case 'ezFrom':{const c=$('#ezFromCity').value.trim();if(!c){toast('נא לכתוב עיר');break;}ezProf.fromCity=c;ezProf.fromPlace=$('#ezFromPlace').value.trim();saveEzProf();ezGo('when');break;}
+    case 'ezDate':ez.date=el.dataset.v;renderEasy();break;
+    case 'ezHour':ez.time=`${el.dataset.v}:${(ez.time||':00').split(':')[1]||'00'}`;if(ez.retTime&&ez.retTime<=ez.time)ez.retTime='';renderEasy();break;
+    case 'ezMin':ez.time=`${(ez.time||'09:').split(':')[0]||'09'}:${el.dataset.v}`;renderEasy();break;
+    case 'ezRet':ez.ret=el.checked;if(!ez.ret)ez.retTime='';renderEasy();break;
+    case 'ezRetH':ez.retTime=el.dataset.v+':00';renderEasy();break;
+    case 'ezWhen':ezGo('needs');break;
+    case 'ezNeed':{const k=el.dataset.v;ez.needs=(ez.needs||[]).includes(k)?ez.needs.filter(x=>x!==k):[...(ez.needs||[]),k];renderEasy();break;}
+    case 'ezPurp':ez.purpose=ez.purpose===el.dataset.v?'':el.dataset.v;renderEasy();break;
+    case 'ezNeedsNext':ezAfterNeeds();break;
+    case 'ezWho':{const n=$('#ezName').value.trim(),ph=$('#ezPhone').value.trim(),err=$('#ezErr');
+      if(!n)return err.textContent='נא לכתוב שם.';if(!validPhone(ph))return err.textContent='מספר הטלפון לא תקין.';
+      const known=pvts.find(x=>x.id===cleanPhone(ph));
+      if(!(known&&known.status==='approved')&&$('#ezTz')){const tz=$('#ezTz').value.replace(/\D/g,'');if(!validTz(tz))return err.textContent='מספר תעודת הזהות לא תקין.';if(!$('#ezElig').value)return err.textContent='נא לבחור למה צריך הסעה.';if(!$('#ezDecl').checked)return err.textContent='נא לאשר את ההצהרה.';ez.tz=tz;ez.elig=$('#ezElig').value;}
+      ezProf.contactName=n;ezProf.phone=ph;ezProf.kind=ezProf.kind||'private';saveEzProf();ezGo('confirm');break;}
+    case 'ezFix':ezGo('when');break;
+    case 'ezPublish':el.disabled=true;await ezPublish();el.disabled=false;break;
+    case 'stage':{const r=reqById(id),s=el.dataset.s,k=el.dataset.k;await api.update('requests',id,{stages:{...(r.stages||{}),[date]:s}});
+      const T={onway:'יצא/ה לדרך לאיסוף',riding:'אסף/ה את הנוסע/ת ובדרך ליעד',arrived:'הגיע/ה ליעד'};
+      notify('req:'+cleanPhone(r.phone),`${me?.name||'הנהג/ת'} ${T[s]} (${r.fromCity} ← ${r.toCity}).`,'#need');
+      if(s==='arrived'){if(k==='cover'){const r2=reqById(id);await api.update('requests',id,{covers:{...r2.covers,[date]:{...r2.covers[date],done:true,confirmed:null}}});askFeedback(id,date,'driver');}
+        else if(k!=='series'){await api.update('requests',id,{status:'done',doneAt:Date.now(),confirmed:null});askFeedback(id,'','driver');}
+        else toast('תודה רבה! הנסיעה של היום הסתיימה');}
+      else toast(s==='onway'?'בהצלחה! המבקש/ת רואה שיצאת':'מעולה, נסיעה טובה');break;}
+    case 'assignDlg':assignDlg(id);break;
+    case 'assignDo':{const r=reqById(id),d=drivers.find(x=>x.id===el.dataset.drv);if(!r||!d)break;
+      const info={driverId:d.id,driverName:d.name,driverPhone:d.phone,driverCar:d.car||'',assignedBy:'מוקד'};
+      if(r.schedule==='weekly'||!el.dataset.date||el.dataset.date===r.date)await api.update('requests',id,{status:'taken',...info,takenAt:Date.now()});
+      else await api.update('requests',id,{covers:{...(r.covers||{}),[el.dataset.date]:{...info,at:Date.now()}}});
+      notify('drv:'+d.id,`המוקד שיבץ אותך לנסיעה ${r.fromCity} ← ${r.toCity}, ${whenText(r)}.`,'#drive');
+      notify('req:'+cleanPhone(r.phone),`${d.name} שובץ/ה לנסיעה מ${r.fromCity} ל${r.toCity}.`,'#need');
+      closeDlg();toast(`${d.name} שובץ/ה`);break;}
+    case 'callbackDlg':callbackDlg();break;
+    case 'a11y':a11yDlg();break;
     case 'orgApply':orgApplyDlg();break;
     case 'ctSet':await api.update('contacts',id,{status:el.dataset.s});break;
     case 'toggleDrvLogin':{const b=$('#dLoginBox');b.hidden=!b.hidden;if(!b.hidden)$('#dLoginPhone').focus();break;}
@@ -1312,8 +1587,8 @@ document.addEventListener('click',async e=>{
     case 'acctSwitch':accountDlg(true);break;
     case 'goDrvReg':closeDlg();location.hash='#drive';setTimeout(()=>{$('#dLoginBox').hidden=true;$('#dName')?.focus();$('#regForm').scrollIntoView({block:'start'});},60);break;
     case 'goDrvLogin':closeDlg();location.hash='#drive';setTimeout(()=>{$('#dLoginBox').hidden=false;$('#dLoginPhone').focus();},60);break;
-    case 'goPostPrivate':closeDlg();location.hash='#need';setTabs('ntab','post',{post:'#nPost',mine:'#nMine'});setTimeout(()=>{const x=document.querySelector('#needForm input[name=kind][value=private]');if(x){x.checked=true;syncNeedForm();}},30);break;
-    case 'goReqMine':closeDlg();location.hash='#need';setTabs('ntab','mine',{post:'#nPost',mine:'#nMine'});renderReqMine();break;
+    case 'goPostPrivate':closeDlg();location.hash='#need';setTabs('ntab','post',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});setTimeout(()=>{const x=document.querySelector('#needForm input[name=kind][value=private]');if(x){x.checked=true;syncNeedForm();}},30);break;
+    case 'goReqMine':closeDlg();location.hash='#need';setTabs('ntab','mine',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});renderReqMine();break;
     case 'acctOut':if(el.dataset.who==='drv'){me=null;lsSet(ME_KEY,null);enterBoard();}else{reqPhone=null;lsSet(REQ_KEY,null);renderReqMine();}closeDlg();renderAccount();renderBell();toast('יצאת מהחשבון');break;
     case 'install':if(installEvt){installEvt.prompt();installEvt=null;closeDlg();}break;
     case 'bellClose':$('#bellPanel').hidden=true;break;
@@ -1327,10 +1602,10 @@ document.addEventListener('click',async e=>{
     case 'previewShabbat':forceShabbat=true;renderShabbat();break;
     case 'exitShabbat':forceShabbat=false;renderShabbat();break;
     case 'resetDemo':if(!armed(el,'בטוח? לחצו שוב'))return;api.reset();me=null;lsSet(ME_KEY,null);reqPhone=null;lsSet(REQ_KEY,null);enterBoard();renderReqMine();toast('נתוני ההדגמה אופסו');break;
-    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane'});break;
+    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});break;
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
     case 'dfilter':dFilter=el.dataset.f;renderAdmin();break;
-    case 'adminAdd':adminAdding=true;location.hash='#need';setTabs('ntab','post',{post:'#nPost',mine:'#nMine'});$('#adminAddNote').hidden=false;break;
+    case 'adminAdd':adminAdding=true;location.hash='#need';setTabs('ntab','post',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});$('#adminAddNote').hidden=false;break;
     case 'cancelAdminAdd':adminAdding=false;$('#adminAddNote').hidden=true;break;
     case 'aedit':openEdit(id);break;
     case 'closeEdit':closeEdit();break;
@@ -1364,6 +1639,10 @@ document.addEventListener('submit',async e=>{
   else if(e.target.id==='repForm')submitReport(e);
   else if(e.target.id==='orgForm')submitOrg(e);
   else if(e.target.id==='ctForm')submitContact(e);
+  else if(e.target.id==='cbForm'){e.preventDefault();const fd=new FormData(e.target),n=String(fd.get('name')||'').trim(),ph=String(fd.get('phone')||'').trim();
+    if(!n){$('#cbErr').textContent='נא לכתוב שם.';return;}if(!validPhone(ph)){$('#cbErr').textContent='מספר הטלפון לא תקין.';return;}
+    await api.add('contacts',{type:'callback',name:n,phone:ph,org:'',email:'',message:String(fd.get('message')||'').trim(),status:'new',at:Date.now()});
+    notify('admin',`בקשת שיחה חוזרת: ${n}`,'#admin');closeDlg();toast('קיבלנו! המוקד יחזור אליך בקרוב');}
   else if(e.target.id==='dLoginForm'){e.preventDefault();const ph=$('#dLoginPhone').value.trim();if(!validPhone(ph)){$('#dLoginErr').textContent='מספר הטלפון לא תקין.';return;}
     const d=await api.findDriverByPhone(ph);if(!d){$('#dLoginErr').textContent='לא מצאנו נהג/ת עם המספר הזה. אפשר להירשם בטופס למטה.';return;}
     me={id:d.id,name:d.name,phone:d.phone};lsSet(ME_KEY,me);enterBoard();toast(`ברוך/ה השב/ה, ${String(d.name).split(' ')[0]}!`);}
@@ -1399,5 +1678,5 @@ needDefaults();
 window.addEventListener('hashchange',()=>{closeDlg();route();renderBell();renderAccount();});route();
 if(DEMO){$('#demoBanner').hidden=false;document.querySelectorAll('[data-demo]').forEach(el=>el.hidden=false);$('#loginHint').textContent='גרסת הדגמה: לחצו "כניסה" גם בלי פרטים.';}
 try{api=DEMO?demoApi():await firebaseApi();}catch(x){console.error(x);toast('החיבור לשרת נכשל');api=demoApi();}
-enterBoard();renderReqMine();renderShabbat();renderBell();renderAccount();setInterval(()=>{renderShabbat();renderBell();},60000);
+enterBoard();renderReqMine();renderShabbat();renderBell();renderAccount();renderEasy();renderHomeLive();setInterval(()=>{renderShabbat();renderBell();},60000);
 api.onAuth(u=>{u?startDash():stopDash();});

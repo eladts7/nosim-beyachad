@@ -335,6 +335,8 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 .ico{display:block;flex:none}
 .logo .dot{color:var(--ink)}
 .bell{display:grid;place-items:center}
+.a11y-btn{margin-inline-start:auto}
+.a11y-btn+.bell{margin-inline-start:6px}
 .tabbar a,.tabbar button{gap:3px}
 .acct-btn .acct-ic{display:grid}
 .hm-hero{padding:18px 0 6px}
@@ -359,6 +361,56 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
 .hm-who em::after{content:" ←"}
 .home-links{margin-top:30px;padding-top:16px;border-top:1px solid var(--line)}
 .cm-cat-i:empty,.choice .ic:empty,.role-head>span:empty,.acct-row>span:first-child:empty,.ab-opt>span:empty,.shab-ic:empty{display:none}
+
+.ez{max-width:560px;margin:0 auto;text-align:center}
+.ez h1{font-size:clamp(28px,6vw,38px);margin:8px 0 14px}
+.ez-h2{font-size:20px;margin:22px 0 10px}
+.ez-top{display:flex;justify-content:space-between;align-items:center;min-height:40px}
+.ez-say{display:inline-flex;align-items:center;gap:6px;font:inherit;font-weight:700;background:#e8f0fb;color:#1f4f8f;border:0;border-radius:999px;padding:8px 14px;cursor:pointer}
+.ez-dots{display:flex;gap:6px;justify-content:center;margin:6px 0 4px}.ez-dots i{width:22px;height:6px;border-radius:3px;background:var(--line)}.ez-dots i.on{background:var(--brand)}
+.ez-mic{width:132px;height:132px;border-radius:50%;border:0;background:#fbe7a6;color:var(--ink);display:grid;place-items:center;margin:6px auto 10px;cursor:pointer;box-shadow:0 0 0 10px #fdf3d3;transition:transform .15s}
+.ez-mic:hover{transform:scale(1.03)}.ez-mic.on{background:var(--brand);animation:ezPulse 1.2s infinite}
+@keyframes ezPulse{0%{box-shadow:0 0 0 8px rgba(245,184,0,.35)}100%{box-shadow:0 0 0 26px rgba(245,184,0,0)}}
+.ez-hint{color:var(--muted);font-size:17px;line-height:1.6;margin:0 0 16px}.ez-hint b{color:var(--ink)}
+.ez-heard{background:#fff;border:1px dashed var(--line);border-radius:12px;padding:8px 12px;color:var(--muted)}
+.ez-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.ez-opt{font:inherit;font-size:18px;font-weight:700;color:var(--ink);background:#fff;border:2px solid var(--line);border-radius:16px;padding:18px 10px;cursor:pointer;min-height:64px}
+.ez-opt.wide{grid-column:1/-1}.ez-opt:hover{border-color:var(--brand)}
+.ez-search{text-align:right;margin-top:8px}.ez-row{display:flex;gap:8px;flex-wrap:wrap}.ez-row>*{flex:1 1 180px;font-size:17px;min-height:52px}
+.ez-next{width:100%;justify-content:center;margin-top:14px;min-height:56px;font-size:19px}.ez-next.big{min-height:64px;font-size:22px}
+.ez-grid{display:grid;gap:8px}.ez-grid.d{grid-template-columns:repeat(3,1fr)}.ez-grid.h{grid-template-columns:repeat(4,1fr)}.ez-grid.n{grid-template-columns:1fr 1fr}.ez-grid.p{grid-template-columns:1fr 1fr}
+.ez-chip,.ez-tile{font:inherit;font-size:17px;color:var(--ink);background:#fff;border:2px solid var(--line);border-radius:14px;padding:12px 6px;cursor:pointer;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.ez-chip small{color:var(--muted);font-size:13px}.ez-tile{min-height:68px;font-weight:600}
+.ez-chip.on,.ez-tile.on{border-color:var(--ink);background:var(--ink);color:#fff}.ez-chip.on small{color:#cfd6e4}
+.ez-seg{display:flex;gap:8px;margin-top:10px}.ez-seg button{flex:1;font:inherit;font-size:17px;font-weight:700;border:2px solid var(--line);background:#fff;border-radius:14px;min-height:52px;cursor:pointer}.ez-seg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ez-check{display:flex;align-items:center;gap:10px;justify-content:center;font-size:18px;margin:16px 0 6px;cursor:pointer}.ez-check input{width:22px;height:22px}
+.ez-sum{background:#fff;border:1px solid var(--line);border-radius:16px;padding:6px 18px;text-align:right}
+.ez-sum div{padding:12px 0;border-bottom:1px solid var(--line)}.ez-sum div:last-child{border:0}.ez-sum span{display:block;color:var(--muted);font-size:14px}.ez-sum b{font-size:20px}
+.ez-foot{margin-top:26px;color:var(--muted);line-height:2}
+.stg{list-style:none;display:flex;gap:4px;padding:0;margin:10px 0 4px}
+.stg li{flex:1;font-size:12px;text-align:center;color:var(--muted);padding-top:8px;border-top:4px solid var(--line)}
+.stg li.done{border-color:var(--ok);color:var(--ok)}.stg li.now{border-color:var(--brand);color:var(--ink);font-weight:700}
+.req-stage{margin-top:8px}.avail-note{margin-top:8px;padding:8px 12px;border-radius:10px;background:#eef6ff;font-size:14px}
+.tag.fit{background:#fff4cf;border-color:#f0d27a;font-weight:700}
+.hm-live{display:inline-flex;align-items:center;gap:8px;margin-bottom:12px;padding:6px 14px;border-radius:999px;background:#e9f6ee;color:var(--ok);font-weight:700;text-decoration:none;font-size:14px}
+.hm-live i{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:ezPulse 1.6s infinite}
+.hm-impact{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+.hm-impact div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px;text-align:center}
+.hm-impact b{display:block;font-size:30px;font-weight:800}.hm-impact span{color:var(--muted);font-size:14px}
+.hm-call{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:16px;padding:14px 16px;border-radius:var(--radius);background:#fffaf0;border:1px solid #f1e3bf}
+.hm-call span{flex:1 1 240px;color:var(--muted)}
+.st-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-top:14px}.st-card h3{margin:0 0 10px;font-size:16px}
+.st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 14px}
+.st-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}.st-row:last-child{border:0}
+.st-bars{display:flex;gap:8px;align-items:flex-end;height:150px;padding-top:18px}
+.st-bar{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.st-bar i{display:block;width:100%;max-width:42px;background:var(--ink);border-radius:6px 6px 0 0;min-height:2px}.st-bar b{color:var(--ink)}
+.a11y-fab{position:fixed;left:14px;bottom:18px;z-index:35;width:48px;height:48px;border-radius:50%;border:0;background:#2b59c3;color:#fff;display:grid;place-items:center;box-shadow:0 6px 18px rgba(16,24,40,.25);cursor:pointer}
+@media (max-width:720px){.a11y-fab{bottom:calc(84px + env(safe-area-inset-bottom))}}
+.a11y-row{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;margin:8px 0;font-size:17px;cursor:pointer}.a11y-row input{width:22px;height:22px}
+html.a-big{font-size:118%}html.a-big body{font-size:1.12em}
+html.a-contrast{--muted:#1d2433;--line:#1d2433}html.a-contrast body{background:#fff}html.a-contrast .btn.ghost,html.a-contrast .chip{border-width:2px}
+html.a-still *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 </style>
 
 </head>
@@ -373,6 +425,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       <a href="#about" data-nav="about">מי אנחנו</a>
     </nav>
     <button class="acct-btn" data-act="account" aria-label="כניסה והרשמה"><span class="acct-ic"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.4 4.2-6.5 8-6.5s7 2.1 8 6.5"/></svg></span><span id="acctLabel">כניסה</span></button>
+    <button class="bell a11y-btn" data-act="a11y" aria-label="התאמות נגישות"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="4.5" r="1.8"/><path d="M5 8.5l7 1.5 7-1.5M12 10v5M9 21l3-6 3 6"/></svg></button>
     <button class="bell" data-act="bell" aria-label="התראות"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span id="bellCnt" hidden>0</span></button>
   </div>
   <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">תצוגת שבת</button></div>
@@ -397,18 +450,20 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
   <!-- ===== בית ===== -->
   <section class="view" id="v-home">
     <div class="hm-hero">
-      <p class="hm-kicker">נוסעים ביחד</p>
+      <a class="hm-live" href="#drive" id="hmLive" hidden></a>
       <h1>הסעות בהתנדבות לאנשים שצריכים להגיע</h1>
       <p class="hm-sub">מחברים בין עמותות ואנשים שצריכים הסעה לטיפול, לבדיקה או לביקור משפחתי, לבין נהגים מתנדבים מאומתים. הנסיעה בחינם, לגמרי.</p>
       <div class="hm-cta"><a class="btn brand lg" href="#need">אני צריך/ה הסעה</a><a class="btn ghost lg" href="#drive">אני רוצה להתנדב כנהג/ת</a></div>
       <ul class="hm-trust"><li>כל נהג עובר אימות</li><li>בלי תשלום על הנסיעה</li><li>מותאם לנוסעים עם מוגבלות</li></ul>
     </div>
+    <div class="hm-impact" id="hmImpact"></div>
     <div class="auth-strip" id="authStrip"></div>
+    <div class="hm-call"><b>מעדיפים לדבר עם מישהו?</b><span>משאירים מספר, והמוקד חוזר אליכם ומפרסם את הנסיעה בשבילכם.</span><button class="btn ghost" data-act="callbackDlg">בקשת שיחה חוזרת</button></div>
     <h2 class="hm-h2">איך זה עובד</h2>
     <ol class="hm-steps">
-      <li><b>מפרסמים נסיעה</b><span>מאיפה, לאן, מתי, ומה חשוב לדעת על הנוסע.</span></li>
+      <li><b>אומרים לאן</b><span>לוחצים על המיקרופון ואומרים "מחר בתשע לקופת חולים", או ממלאים טופס. גם בן משפחה או עמותה יכולים לפרסם.</span></li>
       <li><b>נהג מאומת לוקח אותה</b><span>פעם אחת או באופן קבוע. רואים מיד מי הנהג ואיזה רכב.</span></li>
-      <li><b>מתאמים ונוסעים</b><span>הנהג מתקשר לתיאום, ויוצאים לדרך.</span></li>
+      <li><b>נוסעים, ורואים כל שלב</b><span>יצאתי, אספתי, הגענו. מי שביקש רואה כל שלב בזמן אמת.</span></li>
     </ol>
     <h2 class="hm-h2">למי זה מתאים</h2>
     <div class="hm-who">
@@ -422,12 +477,14 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
   <!-- ===== צריך הסעה ===== -->
   <section class="view" id="v-need">
     <div class="tabs">
-      <button class="tab on" data-act="ntab" data-tab="post">פרסום נסיעה</button>
+      <button class="tab on" data-act="ntab" data-tab="easy">בקשה פשוטה</button>
+      <button class="tab" data-act="ntab" data-tab="post">טופס מלא</button>
       <button class="tab" data-act="ntab" data-tab="mine">הנסיעות שלנו <span class="cnt" id="reqMineCnt" hidden>0</span></button>
     </div>
 
-    <div id="nPost">
-    <div class="note" id="adminAddNote" hidden style="margin-bottom:12px">✏️ מוסיפים נסיעה מדף הניהול. אחרי השמירה תחזרו לדף הניהול. <a href="#admin" data-act="cancelAdminAdd">ביטול</a></div>
+    <div id="nEasy"><div class="ez" id="ezBox"></div></div>
+    <div id="nPost" hidden>
+    <div class="note" id="adminAddNote" hidden style="margin-bottom:12px">מוסיפים נסיעה מדף הניהול. אחרי השמירה תחזרו לדף הניהול. <a href="#admin" data-act="cancelAdminAdd">ביטול</a></div>
     <h1>פרסום נסיעה</h1>
     <p class="lead">הנסיעה תופיע בלוח הנהגים המאומתים. ב"הנסיעות שלנו" תראו מי לקח אותה.</p>
     <div class="card" id="needWrap">
@@ -475,6 +532,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
           <div class="field"><label class="lbl req" for="nTime">שעת איסוף</label><input id="nTime" name="time" type="time"></div>
           <div class="field" data-weekly hidden><label class="lbl" for="nUntil">עד תאריך (לא חובה)</label><input id="nUntil" name="until" type="date"></div>
           <div class="field"><label class="lbl" for="nCount">מספר נוסעים</label><input id="nCount" name="passengers" type="number" min="1" max="8" value="1"></div>
+          <div class="field"><label class="lbl" for="nPurpose">מטרת הנסיעה</label><select id="nPurpose" name="purpose"><option value="">בחירה…</option><option value="medical">טיפול רפואי</option><option value="checkup">בדיקה או ביקור רופא</option><option value="regular">טיפול קבוע (דיאליזה, הקרנות, פיזיותרפיה)</option><option value="rehab">טיפול רגשי או שיקומי</option><option value="family">ביקור משפחתי</option><option value="other">אחר</option></select></div>
         </div>
         <h3>מה חשוב שהנהג/ת ידע/תדע</h3>
         <div class="checks" id="nNeeds">
@@ -642,7 +700,7 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
       </form>
     </div>
     <div id="dash" hidden>
-      <div class="me"><h1 style="margin:0">ניהול מנהלי עמותות ומערך הסעות</h1><div style="display:flex;gap:8px"><button class="btn brand sm" data-act="adminAdd">הוספת נסיעה</button><button class="btn ghost sm" data-act="logout">יציאה</button></div></div>
+      <div class="me"><h1 style="margin:0">ניהול מנהלי עמותות ומערך הסעות</h1><div style="display:flex;gap:8px"><button class="btn brand sm" data-act="adminAdd">נסיעה בשביל מתקשר/ת</button><button class="btn ghost sm" data-act="logout">יציאה</button></div></div>
       <p class="err" id="dashErr"></p>
       <div class="stats" id="stats"></div>
       <div class="tabs">
@@ -650,12 +708,14 @@ button.stat:hover{transform:translateY(-1px);border-color:#c9c3b3}
         <button class="tab" data-act="atab" data-tab="drvs">נהגים</button>
         <button class="tab" data-act="atab" data-tab="reps">דיווחים <span class="cnt" id="repCnt" hidden>0</span></button>
         <button class="tab" data-act="atab" data-tab="orgs">ארגונים <span class="cnt" id="orgCnt" hidden>0</span></button>
+        <button class="tab" data-act="atab" data-tab="stats">סטטיסטיקה</button>
         <button class="tab" data-act="atab" data-tab="cts">פניות <span class="cnt" id="ctCnt" hidden>0</span></button>
         <button class="tab" data-act="atab" data-tab="pvt">מבקשים פרטיים <span class="cnt" id="pvtCnt" hidden>0</span></button>
       </div>
       <div id="urgentBox"></div>
       <div id="aReqPane"><div class="toolbar"><input type="search" id="aSearch" placeholder="חיפוש"><span id="aChips" style="display:flex;gap:6px;flex-wrap:wrap"></span></div><div class="list" id="aReqList"></div></div>
       <div id="aDrvPane" hidden><div class="toolbar" id="dChips"></div><div class="list" id="aDrvList"></div></div>
+      <div id="aStatsPane" hidden></div>
       <div id="aCtPane" hidden><div class="list" id="aCtList"></div></div>
       <div id="aPvtPane" hidden><div class="toolbar" id="pChips"></div><div class="list" id="aPvtList"></div></div>
       <div id="aOrgPane" hidden><div class="toolbar" id="oChips"></div><div class="list" id="aOrgList"></div></div>
