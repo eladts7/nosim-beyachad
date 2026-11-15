@@ -801,17 +801,51 @@ function openCommunity(){
   ensureRequests();renderCommunity();
 }
 const CATS=[
-  {k:'orgVotes',i:'',t:'בחירת העמותות',why:d=>`${d.fun.orgVotes} עמותות בחרו בה/בו השבוע`},
-  {k:'access',i:'',t:'שגריר/ת נגישות',why:d=>`${d.fun.access} נסיעות עם כיסא גלגלים או ליווי מיוחד`},
-  {k:'lastMinute',i:'',t:'מציל/ת הרגע האחרון',why:d=>`לקח/ה ${d.fun.lastMinute} נסיעות שהיו עלולות ליפול`},
-  {k:'streak',i:'',t:'הכי נאמן/ה',why:d=>`${d.fun.streak} שבועות ברצף באותה נסיעה קבועה`},
-  {k:'thanks',i:'',t:'הכי הרבה תודות',why:d=>`${d.fun.thanks} הודעות תודה ממשפחות ועמותות`}
+  {k:'orgVotes',i:'',t:'בחירת העמותות',d:'הנהג/ת שהכי הרבה עמותות אישרו ובחרו לעבוד איתו/ה.',why:d=>`${d.fun.orgVotes} עמותות בחרו בה/בו השבוע`},
+  {k:'access',i:'',t:'שגריר/ת נגישות',d:'הכי הרבה נסיעות עם כיסא גלגלים, פגיעה קוגניטיבית או ליווי מיוחד.',why:d=>`${d.fun.access} נסיעות עם כיסא גלגלים או ליווי מיוחד`},
+  {k:'lastMinute',i:'',t:'מציל/ת הרגע האחרון',d:'מי שלקח/ה נסיעות פחות מיום לפני, כשכבר לא היה מי שייקח.',why:d=>`לקח/ה ${d.fun.lastMinute} נסיעות שהיו עלולות ליפול`},
+  {k:'streak',i:'',t:'הכי נאמן/ה',d:'הכי הרבה שבועות ברצף באותה נסיעה קבועה.',why:d=>`${d.fun.streak} שבועות ברצף באותה נסיעה קבועה`},
+  {k:'thanks',i:'',t:'הכי הרבה תודות',d:'הכי הרבה הודעות תודה ממשפחות, נוסעים ועמותות.',why:d=>`${d.fun.thanks} הודעות תודה ממשפחות ועמותות`}
 ];
 const shortName=d=>{const p=String(d.name||'').split(' ');return p[0]+(p[1]?' '+p[1][0]+'׳':'');};
 const cityOf=d=>String(d.area||'').split(',')[0].trim();
+function communityShowcase(pool){
+  const signed=!!api?.uid;
+  return `<h1>הקהילה שלנו</h1>
+  <p class="lead">הנהגים שלנו מתנדבים בחינם, ולכן אנחנו דואגים שירגישו את זה: תודות מהנוסעים, הוקרה כל שבוע, הטבות משותפים ותעודת שעות התנדבות.</p>
+  <div class="cm-hero cm-sample"><div class="cm-hero-badge">נהג/ת השבוע</div><span class="cm-sample-tag">דוגמה</span>
+    <div class="cm-hero-row"><div class="rw-avatar">ד״ל</div><div><div class="rw-name">דנה ל׳</div><div class="rw-sub">רמת גן · נהגת מונית</div></div></div>
+    <p class="cm-quote">״אמא שלי מחכה לנסיעה של יום שלישי כל השבוע. תודה שאת שם בשבילנו.״</p>
+    <div class="cm-why">מציל/ת הרגע האחרון: לקחה 3 נסיעות שהיו עלולות ליפול</div></div>
+  <h3>כל שבוע, חמישה נהגים מקבלים הוקרה, כל אחד מסיבה אחרת</h3>
+  <p class="hint" style="margin-top:-6px">לא רק מי שנסע הכי הרבה. כך גם מי שמתנדב פעם בשבוע יכול לזכות.</p>
+  <div class="cm-cats">${CATS.map((c,i)=>`<div class="cm-cat"><div class="cm-cat-i cm-num">${i+1}</div><div><b>${esc(c.t)}</b><div class="cm-cat-n">${esc(c.d||'')}</div></div></div>`).join('')}</div>
+  <h3>תודה שמגיעה ישר לנהג/ת</h3>
+  <div class="cm-two"><div class="cm-box"><b>מהנוסעים והמשפחות</b><p>אחרי כל נסיעה אפשר לכתוב כמה מילים חמות. הנהג/ת מקבל/ת התראה, והתודה נשמרת בפרופיל שלו/ה.</p></div>
+    <div class="cm-box"><b>מהעמותות</b><p>עמותה יכולה לאשר נהג/ת שהיא סומכת עליו/ה. כל אישור כזה מופיע בפרופיל, וזה גם הפרס "בחירת העמותות".</p></div></div>
+  <h3>הטבות משותפים</h3>
+  <p class="hint" style="margin-top:-6px">אחרי מספר נסיעות נפתחת מתנה. את השותפים הראשונים אנחנו מגייסים עכשיו, והם יקבעו את הספים.</p>
+  <div class="cm-perks">${PERKS.map(p=>`<div class="cm-perk"><span class="cm-perk-n">${p.need}</span><div><b>${esc(p.title)}</b><div class="hint">${esc(p.partner)} · אחרי ${p.need} נסיעות</div></div></div>`).join('')}</div>
+  <div class="cm-two"><div class="cm-box"><b>תעודת שעות התנדבות</b><p>כל נהג/ת יכול/ה להוריד אישור על שעות ההתנדבות, למשל למקום העבודה או ללימודים.</p></div>
+    <div class="cm-box"><b>מפגש נהגים</b><p>פעם ברבעון נפגשים לקפה, מכירים את העמותות ושומעים איך הנסיעות משנות חיים.</p></div></div>
+  ${pool.length?`<h3>הנהגים הראשונים שלנו</h3><div class="cm-list">${pool.map(d=>`<button class="cm-row" data-act="cmDriver" data-id="${d.id}"><span class="rw-avatar sm">${initials(d)}</span><span><b>${esc(shortName(d))}</b><span class="hint"> · ${esc(cityOf(d))}</span></span><span class="hint">לשליחת תודה ←</span></button>`).join('')}</div>`
+    :`<div class="cm-first"><b>הנהגים הראשונים יופיעו כאן</b><p>מי שמצטרף עכשיו יהיה חלק מקבוצת המייסדים של נוסעים ביחד.</p></div>`}
+  <div class="cm-join"><b>רוצים להיות חלק?</b><div class="actions" style="justify-content:center"><a class="btn brand" href="#drive">הרשמה כנהג/ת</a>${signed?'':'<button class="btn ghost" data-act="gSignIn">כניסה עם Google</button>'}</div></div>
+  <p class="hint" style="text-align:center;margin-top:18px">נהגים מופיעים כאן רק בהסכמתם, עם שם פרטי ועיר בלבד.</p>`;
+}
+/* מדדי קהילה אמיתיים, מחושבים מהנסיעות (בהדגמה יש ערכים מוכנים) */
+function funOf(d){
+  if(d.fun&&!LIVE)return d.fun;
+  const mine=[];for(const r of requests){if(r.driverId===d.id&&(r.status==='done'||r.schedule==='weekly'))mine.push({r,at:r.takenAt,date:r.date});for(const [dt,c] of Object.entries(r.covers||{}))if(c.driverId===d.id)mine.push({r,at:c.at,date:dt,done:c.done});}
+  const access=mine.filter(x=>(x.r.needs||[]).some(k=>['wheelchair','cognitive','escort','guideDog'].includes(k))).length;
+  const lastMinute=mine.filter(x=>x.at&&x.date&&(new Date(`${x.date}T${x.r.time||'00:00'}`).getTime()-x.at)<864e5).length;
+  const streak=requests.filter(r=>r.driverId===d.id&&r.schedule==='weekly'&&r.status==='taken').reduce((m,r)=>Math.max(m,Math.floor((Date.now()-(r.takenAt||Date.now()))/6048e5)),0);
+  return {orgVotes:(d.orgApprovals||[]).length,access,lastMinute,streak,thanks:(d.thanks||[]).length+((d.fun||{}).thanks||0)};
+}
 function renderCommunity(){
   const el=$('#communityBody');if(!el)return;
-  const pool=commDrivers.filter(d=>d.active!==false&&d.verification?.status==='approved'&&d.showInCommunity!==false&&d.fun);
+  const pool=commDrivers.filter(d=>d.active!==false&&d.verification?.status==='approved'&&d.showInCommunity!==false).map(d=>({...d,fun:funOf(d)}));
+  if(LIVE&&pool.length<3){el.innerHTML=communityShowcase(pool);return;}
   const used=new Set();
   const winners=CATS.map(c=>{const w=[...pool].sort((a,b)=>(b.fun[c.k]||0)-(a.fun[c.k]||0)).find(d=>!used.has(d.id)&&(d.fun[c.k]||0)>0);if(w)used.add(w.id);return w?{c,w}:null;}).filter(Boolean);
   const newest=[...pool].sort((a,b)=>(b.joinedAt||b.createdAt||0)-(a.joinedAt||a.createdAt||0))[0];
@@ -836,7 +870,7 @@ function renderCommunity(){
   <h3>המצטיינים השבוע, כל אחד מסיבה אחרת</h3>
   <div class="cm-cats">${winners.slice(1).map(({c,w})=>`<div class="cm-cat" role="button" tabindex="0" data-act="cmDriver" data-id="${w.id}"><div class="cm-cat-i">${c.i}</div><div><b>${esc(c.t)}</b><div class="cm-cat-n">${esc(shortName(w))} · ${esc(cityOf(w))}</div><div class="hint">${esc(c.why(w))}</div></div></div>`).join('')}
     ${newest?`<div class="cm-cat" role="button" tabindex="0" data-act="cmDriver" data-id="${newest.id}"><div class="cm-cat-i"></div><div><b>הצטרפות השבוע</b><div class="cm-cat-n">${esc(shortName(newest))} · ${esc(cityOf(newest))}</div><div class="hint">ברוכים הבאים! כבר ${newest.pastRides||0} נסיעות ראשונות</div></div></div>`:''}</div>
-  <h3>הכירו את</h3>
+  ${LIVE?'':`<h3>הכירו את</h3>
   <div class="cm-spot">
     <div class="cm-spot-card" role="button" tabindex="0" data-act="cmOrg" data-org="עמותת בית חם"><div class="cm-spot-tag">עמותה</div><b>עמותת בית חם</b>
       <p>מפעילה דירות בקהילה לאנשים עם מוגבלות שכלית. בזכות נהגים מתנדבים, הדיירים מגיעים כל שבוע לבתי ההורים ולטיפולים.</p></div>
@@ -848,7 +882,7 @@ function renderCommunity(){
     <a href="#drive"><span class="cm-date">השבוע</span>עמותה חדשה הצטרפה ופרסמה 4 נסיעות קבועות ראשונות. ←</a>
     <a href="#drive"><span class="cm-date">השבוע</span>נוספה אפשרות לכסות שבוע אחד בנסיעה קבועה, עד שנמצא נהג קבוע. ←</a>
     <button data-act="goRewards"><span class="cm-date">החודש</span>שותף ראשון להטבות: קפה ומאפה לנהגים אחרי 10 נסיעות (לדוגמה). ←</button>
-  </div>
+  </div>`}
   <div class="cm-join"><b>רוצים להיות חלק?</b><div class="actions" style="justify-content:center"><a class="btn brand" href="#drive">הרשמה כנהג/ת</a><a class="btn ghost" href="#need">פרסום נסיעה</a></div></div>
   <p class="hint" style="text-align:center;margin-top:18px">נהגים מופיעים כאן רק בהסכמתם, עם שם פרטי ועיר בלבד. בגרסת ההדגמה התוכן לדוגמה.</p>`;
 }
@@ -1278,7 +1312,7 @@ function applyLiveGates(){
     g.innerHTML=api.uid&&!api.isAdmin?`<p>החשבון ${esc(api.email)} עדיין לא מורשה לניהול.</p><button class="btn ghost" data-act="gSignOut">כניסה בחשבון אחר</button>`:`<p class="hint">כניסת צוות עם חשבון גוגל מורשה.</p>${gBtn()}`;}
 }
 let liveUnsubs=[];
-function resetListeners(){(extraUnsub||[]).forEach(f=>{try{f&&f();}catch(e){}});extraUnsub=null;if(reqUnsub){try{reqUnsub();}catch(e){}reqUnsub=null;}requests=[];reports=[];notifs=[];allDrivers=[];orgs=[];pvts=[];contacts=[];ensureRequests();}
+function resetListeners(){if(commUnsub){try{commUnsub();}catch(e){}commUnsub=null;}if(location.hash==='#community')setTimeout(openCommunity,0);(extraUnsub||[]).forEach(f=>{try{f&&f();}catch(e){}});extraUnsub=null;if(reqUnsub){try{reqUnsub();}catch(e){}reqUnsub=null;}requests=[];reports=[];notifs=[];allDrivers=[];orgs=[];pvts=[];contacts=[];ensureRequests();}
 async function onLiveAuth(u){
   if(u){const d=await api.getDriver();me=d?{...d,id:api.uid}:null;reqPhone=(api.profile||{}).phone||('g:'+u.uid);
     if(d&&!(api.profile||{}).isDriver)api.saveProfile({isDriver:true,name:d.name}).catch(()=>{});}
