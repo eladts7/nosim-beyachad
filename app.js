@@ -1610,6 +1610,14 @@ async function renderTeam(){const el=$('#aTeamPane');if(!el)return;
     <p class="hint">איש צוות רואה את כל הנסיעות והפרטים האישיים, מאשר נהגים וארגונים ומשבץ. הוסיפו רק אנשים שאתם סומכים עליהם, עם חשבון גוגל.</p>
     <div class="toolbar"><label class="sr-only" for="teamEmail">מייל של איש/אשת צוות</label><input id="teamEmail" type="email" placeholder="name@gmail.com" dir="ltr" style="flex:1"><button class="btn sm" data-act="teamAdd">הוספה</button></div>
     <div class="list">${list.map(a=>`<div class="item" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span dir="ltr">${esc(a.id)}</span><button class="btn ghost sm" data-act="teamDel" data-e="${esc(a.id)}">הסרה</button></div>`).join('')||'<p class="hint">אין עדיין.</p>'}</div></div>`;}
+function exportCsv(){
+  const ST={open:'פתוחה',taken:'נלקחה',done:'בוצעה',cancelled:'בוטלה'};
+  const rows=[['תאריך','ימים קבועים','שעה','סוג','מאיפה','לאן','מבקש/ת','מטרה','סטטוס','נהג/ת','נוצרה']];
+  for(const r of requests){rows.push([r.date||'',r.schedule==='weekly'?(r.days||[]).map(i=>DAYS[i]).join(' '):'',tw(r),isDlv(r)?'שליחות: '+(ITEMS[r.item]||''):'הסעה',r.fromCity||'',r.toCity||'',
+    r.kind==='org'?r.orgName||'':'אדם פרטי',PURPOSES[r.purpose]||'',ST[r.status]||r.status||'',r.driverName||'',r.createdAt?new Date(r.createdAt).toLocaleDateString('he-IL'):'']);}
+  const csv='﻿'+rows.map(row=>row.map(v=>{v=String(v??'');if(/^[=+\-@]/.test(v))v="'"+v;return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='nosim-beyachad-'+todayStr()+'.csv';document.body.appendChild(a);a.click();a.remove();
+  toast('הקובץ ירד. הוא בלי שמות וטלפונים של נוסעים');}
 function delAcctDlg(){openDlg(`<h3>מחיקת החשבון</h3><p>נמחקים לצמיתות: הפרופיל, פרטי הקשר, מסמכי הנהג, האימות וההתראות. נסיעות פתוחות שפרסמת יבוטלו. נסיעות שכבר בוצעו נשארות לסטטיסטיקה, בלי שם ובלי טלפון.</p>
   <p class="hint">אי אפשר לבטל את המחיקה. כדי לאשר, כתבו את המילה <b>מחיקה</b>.</p>
   <div class="field"><label class="lbl" for="delConfirm">אישור</label><input id="delConfirm" type="text" autocomplete="off"></div>
@@ -1849,6 +1857,7 @@ document.addEventListener('click',async e=>{
     case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane',team:'#aTeamPane'});if(aTab==='team')renderTeam();break;
     case 'teamAdd':{const i=$('#teamEmail'),e=(i.value||'').trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast('כתובת מייל לא תקינה');break;}try{await api.addAdmin(e);toast('נוסף/ה לצוות');renderTeam();}catch(x){toast('לא הצלחנו להוסיף');}break;}
     case 'teamDel':{const e=el.dataset.e;if(e===(api.email||'').toLowerCase()){toast('אי אפשר להסיר את עצמך');break;}if(!armed(el,'להסיר? לחצו שוב'))return;try{await api.removeAdmin(e);toast('הוסר/ה מהצוות');renderTeam();}catch(x){toast('לא הצלחנו להסיר');}break;}
+    case 'exportCsv':exportCsv();break;
     case 'delAcct':delAcctDlg();break;
     case 'delAcctGo':{const i=$('#delConfirm');if((i?.value||'').trim()!=='מחיקה'){toast('כדי למחוק, כתבו: מחיקה');break;}el.disabled=true;try{if(LIVE){await api.server('delete-account',{});try{await api.logout();}catch(e){}}else{localStorage.clear();}closeDlg();toast('החשבון והמידע האישי נמחקו');setTimeout(()=>location.reload(),1200);}catch(x){el.disabled=false;toast('המחיקה לא הצליחה: '+x.message);}break;}
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
