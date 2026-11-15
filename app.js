@@ -265,14 +265,20 @@ async function firebaseApi(){
     logout:async()=>{if(NATIVE)try{await window.Capacitor.Plugins.FirebaseAuthentication.signOut();}catch(e){}return au.signOut(auth);},
     onAuth(f){au.onAuthStateChanged(auth,async u=>{user=u;profile={};isAdmin=false;
       if(u){isAdmin=ADMIN_EMAILS.includes((u.email||'').toLowerCase());
-        try{const a=await fs.getDoc(D('admins',(u.email||'').toLowerCase()));if(a.exists())isAdmin=true;}catch(e){}
+        try{const em=(u.email||'').toLowerCase();const a=await fs.getDoc(D('admins',em));if(a.exists())isAdmin=true;else if(isAdmin)await fs.setDoc(D('admins',em),{addedBy:'system',at:Date.now()});}catch(e){}
         try{const s=await fs.getDoc(D('users',u.uid));profile=s.exists()?s.data():{};}catch(e){console.error(e);}}
       f(u);});},
     async idToken(){return user?await user.getIdToken():'';},
+    async server(path,body){const t=await this.idToken();const res=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify(body||{})});
+      let j={};try{j=await res.json();}catch(e){}if(!res.ok||j.ok===false)throw new Error(j.error||('שגיאה '+res.status));return j;},
+    async listAdmins(){const s=await fs.getDocs(C('admins'));return s.docs.map(d=>({id:d.id,...d.data()}));},
+    async addAdmin(e){e=String(e||'').trim().toLowerCase();await fs.setDoc(D('admins',e),{addedBy:user.email||'',at:Date.now()});},
+    async removeAdmin(e){await fs.deleteDoc(D('admins',e));},
     async savePush(sub,fcm){if(!user)return;const src=fcm||sub.endpoint||'';const k=user.uid+'_'+src.slice(-24).replace(/[^A-Za-z0-9]/g,'');await fs.setDoc(D('pushSubs',k),fcm?{uid:user.uid,admin:isAdmin,fcm,at:Date.now()}:{uid:user.uid,admin:isAdmin,sub,at:Date.now()});},
     async saveProfile(v){profile={...profile,...v};await fs.setDoc(D('users',user.uid),strip({...v,email:user.email||'',updatedAt:Date.now()}),{merge:true});},
     async add(c,v){
       v=strip(v);
+      if(c==='requests'&&v.kind==='private'&&!isAdmin){const res=await this.server('request',{r:v});return res.id;}
       if(c==='requests'){const ref=fs.doc(C('requests'));const [pub,pv]=split(v,REQ_PRIV);const b=fs.writeBatch(db);
         const ids=driverIdsOf(pub);b.set(ref,{...pub,createdBy:user.uid,driverIds:ids});b.set(D('reqPriv',ref.id),{...pv,createdBy:user.uid,orgName:pub.kind==='org'?pub.orgName||'':'',driverIds:ids});await b.commit();return ref.id;}
       if(c==='orgs')v.ownerUid=user.uid;
@@ -341,13 +347,14 @@ function ensureRequests(){
 }
 
 /* ===== ניווט ===== */
-const VIEWS=['home','need','drive','community','admin','terms','about'];
+const VIEWS=['home','need','drive','community','admin','terms','about','access'];
 function route(){
   if((location.hash.slice(1)||'home')==='community')setTimeout(()=>openCommunity(),0);
   const v=location.hash.slice(1)||'home',view=VIEWS.includes(v)?v:'home';
   document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active',el.id==='v-'+view));
   document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('on',a.dataset.nav===view));
   window.scrollTo(0,0);
+  if(route._done){const m=document.getElementById('main');m&&m.focus({preventScroll:true});}route._done=true;
 }
 function setTabs(group,tab,panes){
   document.querySelectorAll(`[data-act=${group}]`).forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
@@ -429,7 +436,7 @@ async function submitNeed(e){
       delete back.returnTime;
       const backId=await api.add('requests',back);await api.update('requests',mainId,{returnId:backId});
     }
-    notifyNewRide(r);
+    notifyNewRide({...r,id:mainId});
     f.reset();needDefaults();
     if(adminAdding){adminAdding=false;$('#adminAddNote').hidden=true;toast('הנסיעה נוספה ');location.hash='#admin';btn.disabled=false;return;}
     reqPhone=r.phone;lsSet(REQ_KEY,reqPhone);
@@ -456,7 +463,7 @@ function driverLine(d){
 /* נסיעות שהנהג סימן כבוצעו ומחכות לאישור המבקש */
 function isMine(r){return LIVE?(!!api?.uid&&r.createdBy===api.uid):(!!reqPhone&&cleanPhone(r.phone)===cleanPhone(reqPhone));}
 function myReqKey(){return LIVE?'req:'+(api?.uid||'-'):'req:'+cleanPhone(reqPhone||'');}
-function rk(r){return LIVE&&r.createdBy?'req:'+r.createdBy:'req:'+cleanPhone(r.phone||'');}
+function rk(r){_nCtx=r?.id||'';return LIVE&&r.createdBy?'req:'+r.createdBy:'req:'+cleanPhone(r.phone||'');}
 function ownerKey(r){return LIVE?r.createdBy:cleanPhone(r.phone||'');}
 function myPvt(phone){return LIVE?pvts.find(x=>x.id===api?.uid):pvts.find(x=>x.id===cleanPhone(phone||''));}
 function pendingConfirms(phone){
@@ -978,7 +985,7 @@ function accountDlg(choose){
   if(me)logged.push(`<div class="acct-row on"><div><b>${esc(me.name)}</b><div class="hint">נהג/ת מתנדב/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
   if(ri)logged.push(`<div class="acct-row on"><div><b>${esc(ri.label)}</b><div class="hint">${ri.kind==='org'?'ארגון':'מבקש/ת פרטי/ת'} · <span dir="ltr">${esc(reqPhone)}</span></div></div><button class="btn ghost sm" data-act="goReqMine">לנסיעות</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
   if(adminOn)logged.push(`<div class="acct-row on"><div><b>צוות נוסעים ביחד</b></div><a class="btn ghost sm" href="#admin" data-act="closeDlg">לניהול</a><button class="btn ghost sm" data-act="logout">יציאה</button></div>`);
-  if(logged.length){const pr=pushRow();if(pr)logged.push(pr);}
+  if(logged.length){const pr=pushRow();if(pr)logged.push(pr);logged.push(`<div class="acct-row"><div><b>מחיקת החשבון</b><div class="hint">מחיקת הפרופיל והמידע האישי</div></div><button class="btn ghost sm" data-act="delAcct">מחיקה</button></div>`);}
   const role=(ic,t,sub,b1,b2)=>`<div class="role-card"><div class="role-head"><span>${ic}</span><div><b>${t}</b><div class="hint">${sub}</div></div></div><div class="role-btns">${b1}${b2}</div></div>`;
   const roles=[
     me?'':role('','אני נהג/ת מתנדב/ת','נהגי מוניות ואזרחים. נרשמים ומאמתים לבד','<button class="btn brand sm" data-act="goDrvReg">הרשמה</button>','<button class="btn ghost sm" data-act="goDrvLogin">כבר רשום/ה: כניסה</button>'),
@@ -1557,8 +1564,10 @@ function fitsAvail(d,date,time){
 }
 
 /* ===== התראות ===== */
-async function notify(to,text,link){try{const id=await api.add('notifs',{to,text,link:link||'',at:Date.now(),read:false});
-  if(LIVE&&id){const t=await api.idToken();fetch('/api/notify',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({id})}).catch(()=>{});}}catch(e){console.error(e);}}
+let _nCtx='',_nKind='';
+async function notify(to,text,link){const rid=_nCtx,kind=_nKind;_nCtx='';_nKind='';
+  try{if(LIVE){await api.server('notify',{to,text,link:link||'',rid,kind});return;}
+    await api.add('notifs',{to,text,link:link||'',at:Date.now(),read:false});}catch(e){console.error(e);}}
 const PN=()=>window.Capacitor?.Plugins?.PushNotifications;
 let pnInit=false;
 async function nativePush(ask){const P=PN();if(!P||!api?.uid)return false;
@@ -1584,6 +1593,17 @@ function renderPushNote(){const el=document.getElementById('pushNote');if(!el)re
   if(!me||s==='demo'||s==='unsupported'||s==='granted'||s==='denied'){el.hidden=true;return;}
   el.innerHTML=s==='ios-install'?`<div><b>רוצים לדעת מיד על נסיעה חדשה?</b>באייפון מתקינים קודם את האפליקציה למסך הבית, ואז מפעילים התראות.</div><button class="btn sm" data-act="iosHow">איך</button>`
     :`<div><b>רוצים לדעת מיד על נסיעה חדשה באזור שלכם?</b>נשלח התראה לטלפון, גם כשהאפליקציה סגורה.</div><button class="btn sm" data-act="pushOn">הפעלת התראות</button>`;el.hidden=false;}
+async function renderTeam(){const el=$('#aTeamPane');if(!el)return;
+  if(!LIVE){el.innerHTML='<p class="hint">ניהול צוות זמין רק בגרסה האמיתית.</p>';return;}
+  el.innerHTML='<p class="hint">טוען…</p>';let list=[];try{list=await api.listAdmins();}catch(e){el.innerHTML='<p class="err">לא הצלחנו לטעון את הצוות.</p>';return;}
+  el.innerHTML=`<div class="card" style="padding:18px"><h3 style="margin-top:0">אנשי צוות עם גישת ניהול</h3>
+    <p class="hint">איש צוות רואה את כל הנסיעות והפרטים האישיים, מאשר נהגים וארגונים ומשבץ. הוסיפו רק אנשים שאתם סומכים עליהם, עם חשבון גוגל.</p>
+    <div class="toolbar"><label class="sr-only" for="teamEmail">מייל של איש/אשת צוות</label><input id="teamEmail" type="email" placeholder="name@gmail.com" dir="ltr" style="flex:1"><button class="btn sm" data-act="teamAdd">הוספה</button></div>
+    <div class="list">${list.map(a=>`<div class="item" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span dir="ltr">${esc(a.id)}</span><button class="btn ghost sm" data-act="teamDel" data-e="${esc(a.id)}">הסרה</button></div>`).join('')||'<p class="hint">אין עדיין.</p>'}</div></div>`;}
+function delAcctDlg(){openDlg(`<h3>מחיקת החשבון</h3><p>נמחקים לצמיתות: הפרופיל, פרטי הקשר, מסמכי הנהג, האימות וההתראות. נסיעות פתוחות שפרסמת יבוטלו. נסיעות שכבר בוצעו נשארות לסטטיסטיקה, בלי שם ובלי טלפון.</p>
+  <p class="hint">אי אפשר לבטל את המחיקה. כדי לאשר, כתבו את המילה <b>מחיקה</b>.</p>
+  <div class="field"><label class="lbl" for="delConfirm">אישור</label><input id="delConfirm" type="text" autocomplete="off"></div>
+  <div class="actions"><button class="btn" style="background:#b42318" data-act="delAcctGo">מחיקת החשבון</button><button class="btn ghost" data-act="closeDlg">ביטול</button></div>`);}
 function pushRow(){const s=pushStatus();if(s==='demo'||s==='unsupported'||s==='granted'||!api?.uid)return '';
   if(s==='ios-install')return `<div class="acct-row"><div><b>התראות לטלפון</b><div class="hint">באייפון צריך קודם להתקין את האפליקציה למסך הבית</div></div><button class="btn ghost sm" data-act="iosHow">איך מתקינים</button></div>`;
   if(s==='denied')return `<div class="acct-row"><div><b>ההתראות חסומות</b><div class="hint">אפשר לאשר אותן בהגדרות הדפדפן של האתר</div></div></div>`;
@@ -1594,7 +1614,7 @@ function notifyNewRide(r){
     if(d.active===false||d.verification?.status!=='approved')continue;
     if(!(areaMatch(d.area,r.fromCity)||areaMatch(d.area,r.toCity)))continue;
     if(!fitsAvail(d,occ,r.time))continue;
-    notify('drv:'+(d.id),`${isDlv(r)?'שליחות חדשה ('+(ITEMS[r.item]||'')+')':'נסיעה חדשה'} באזור שלך: ${r.fromCity} ← ${r.toCity}, ${r.schedule==='weekly'?'כל שבוע':fmtDate(r.date)} ב-${tw(r)}`,'#drive');
+    _nCtx=r.id||'';notify('drv:'+(d.id),`${isDlv(r)?'שליחות חדשה ('+(ITEMS[r.item]||'')+')':'נסיעה חדשה'} באזור שלך: ${r.fromCity} ← ${r.toCity}, ${r.schedule==='weekly'?'כל שבוע':fmtDate(r.date)} ב-${tw(r)}`,'#drive');
   }
 }
 /* ההתראות לפי המסך: נהג בלוח, מבקש בעמוד הנסיעות, מנהל בניהול. בבית: הכל. */
@@ -1816,7 +1836,11 @@ document.addEventListener('click',async e=>{
     case 'previewShabbat':forceShabbat=true;renderShabbat();break;
     case 'exitShabbat':forceShabbat=false;renderShabbat();break;
     case 'resetDemo':if(!armed(el,'בטוח? לחצו שוב'))return;api.reset();me=null;lsSet(ME_KEY,null);reqPhone=null;lsSet(REQ_KEY,null);enterBoard();renderReqMine();toast('נתוני ההדגמה אופסו');break;
-    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane'});break;
+    case 'atab':aTab=el.dataset.tab;setTabs('atab',aTab,{reqs:'#aReqPane',drvs:'#aDrvPane',reps:'#aRepPane',orgs:'#aOrgPane',pvt:'#aPvtPane',cts:'#aCtPane',stats:'#aStatsPane',team:'#aTeamPane'});if(aTab==='team')renderTeam();break;
+    case 'teamAdd':{const i=$('#teamEmail'),e=(i.value||'').trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast('כתובת מייל לא תקינה');break;}try{await api.addAdmin(e);toast('נוסף/ה לצוות');renderTeam();}catch(x){toast('לא הצלחנו להוסיף');}break;}
+    case 'teamDel':{const e=el.dataset.e;if(e===(api.email||'').toLowerCase()){toast('אי אפשר להסיר את עצמך');break;}if(!armed(el,'להסיר? לחצו שוב'))return;try{await api.removeAdmin(e);toast('הוסר/ה מהצוות');renderTeam();}catch(x){toast('לא הצלחנו להסיר');}break;}
+    case 'delAcct':delAcctDlg();break;
+    case 'delAcctGo':{const i=$('#delConfirm');if((i?.value||'').trim()!=='מחיקה'){toast('כדי למחוק, כתבו: מחיקה');break;}el.disabled=true;try{if(LIVE){await api.server('delete-account',{});try{await api.logout();}catch(e){}}else{localStorage.clear();}closeDlg();toast('החשבון והמידע האישי נמחקו');setTimeout(()=>location.reload(),1200);}catch(x){el.disabled=false;toast('המחיקה לא הצליחה: '+x.message);}break;}
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
     case 'dfilter':dFilter=el.dataset.f;renderAdmin();break;
     case 'adminAdd':adminAdding=true;location.hash='#need';setTabs('ntab','post',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});$('#adminAddNote').hidden=false;break;
@@ -1863,7 +1887,7 @@ document.addEventListener('submit',async e=>{
   else if(e.target.id==='thanksForm'){e.preventDefault();const f=e.target,fd=new FormData(f),text=String(fd.get('text')||'').trim(),from=String(fd.get('from')||'').trim();
     if(!text){$('#thanksErr').textContent='נא לכתוב כמה מילים.';return;}
     const d=commDrivers.find(x=>x.id===f.dataset.id);await api.update('drivers',d.id,{thanks:[{from:from||'מישהו מהקהילה',text,ago:'עכשיו'},...(d.thanks||[])],fun:{...(d.fun||{}),thanks:(d.fun?.thanks||0)+1}});
-    notify('drv:'+d.id,`קיבלת תודה${from?' מ'+from:''}: "${text.slice(0,60)}"`,'#drive');closeDlg();toast('התודה נשלחה ');}
+    _nKind='thanks';notify('drv:'+d.id,`קיבלת תודה${from?' מ'+from:''}: "${text.slice(0,60)}"`,'#drive');closeDlg();toast('התודה נשלחה ');}
   else if(e.target.id==='reasonForm'){e.preventDefault();const reason=String(new FormData(e.target).get('reason')||'').trim();if(!reason){$('#reasonErr').textContent='נא לכתוב סיבה.';return;}const p=pendingRelease;closeDlg();await doRelease(p.kind,p.id,p.date,reason);}
   else if(e.target.id==='fbForm'){e.preventDefault();const f=e.target,fd=new FormData(f),fb={score:Number(fd.get('score')),text:String(fd.get('text')||'').trim()};const r=reqById(f.dataset.ride),k=f.dataset.key;
     const fk=f.dataset.by==='driver'?'driverFeedback':'feedback';
@@ -1889,6 +1913,7 @@ document.title=APP_NAME;$('#appName').textContent=APP_NAME;
 $('#nDays').innerHTML=DAYS.slice(0,6).map((d,i)=>`<label><input type="checkbox" name="days" value="${i}">${d}׳</label>`).join('')+'<span class="hint" style="align-self:center">בשבת המערכת לא פעילה</span>';
 $('#nNeeds').innerHTML=NEEDS.map(n=>`<label><input type="checkbox" name="needs" value="${n.k}">${n.i} ${n.t}</label>`).join('');
 needDefaults();
+document.querySelector('.skip')?.addEventListener('click',e=>{e.preventDefault();document.getElementById('main').focus();});
 window.addEventListener('hashchange',()=>{closeDlg();route();renderBell();renderAccount();showInstall();});route();setTimeout(showInstall,1500);window.addEventListener('appinstalled',()=>{installEvt=null;showInstall();});
 if(DEMO){$('#demoBanner').hidden=false;document.querySelectorAll('[data-demo]').forEach(el=>el.hidden=false);$('#loginHint').textContent='גרסת הדגמה: לחצו "כניסה" גם בלי פרטים.';}
 try{api=DEMO?demoApi():await firebaseApi();}catch(x){console.error(x);toast('החיבור לשרת נכשל');api=demoApi();}

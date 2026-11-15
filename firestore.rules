@@ -34,8 +34,9 @@ service cloud.firestore {
     }
 
     match /admins/{e} {
-      allow read: if signedIn() && email() == e;
-      allow write: if false;
+      allow read: if signedIn() && (email() == e || isAdmin());
+      allow create, delete: if isAdmin();
+      allow update: if false;
     }
 
     
@@ -66,10 +67,8 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.createdBy == uid() && (
         isAdmin()
         || (request.resource.data.kind == 'org' && isOrg() && request.resource.data.orgName == myOrg())
-        || (request.resource.data.kind == 'private' && (
-              request.resource.data.get('privPending', false) == true
-              || get(/databases/$(database)/documents/pvts/$(uid())).data.status == 'approved'))
       );
+      // Private requests are created only by the server, which checks verification and the monthly quota.
       allow update: if isAdmin()
         || (signedIn() && resource.data.get('createdBy', '') == uid()
             && !changed().hasAny(['createdBy', 'privPending']))
@@ -102,8 +101,8 @@ service cloud.firestore {
     match /notifs/{n} {
       allow read: if signedIn() && (resource.data.to == 'drv:' + uid() || resource.data.to == 'req:' + uid()
         || (resource.data.to == 'admin' && isAdmin()));
-      allow create: if signedIn() && request.resource.data.keys().hasOnly(['to', 'text', 'link', 'at', 'read'])
-        && smallText(request.resource.data.text, 500);
+      // Created only by the server, which checks who may notify whom.
+      allow create: if false;
       allow update: if signedIn() && (resource.data.to == 'drv:' + uid() || resource.data.to == 'req:' + uid()
         || (resource.data.to == 'admin' && isAdmin())) && changed().hasOnly(['read']);
       allow delete: if isAdmin();
