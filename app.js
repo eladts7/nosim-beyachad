@@ -1,3 +1,4 @@
+
 /* ===== הגדרות: מלאו את פרטי Firebase כדי לעבור מהדגמה לשימוש אמיתי ===== */
 const APP_NAME='נוסעים ביחד';
 const firebaseConfig={apiKey:'AIzaSyBnetbJLcAFA9rhXKW8QvLqoOrGTTM19gI',authDomain:'nosim-beyachad.firebaseapp.com',projectId:'nosim-beyachad',storageBucket:'nosim-beyachad.firebasestorage.app',messagingSenderId:'405584454636',appId:'1:405584454636:web:28ed73603795724f4096c9'};
@@ -926,7 +927,16 @@ function cmOrgDlg(o){
 }
 
 /* ===== חשבון: כניסה והרשמה ===== */
-let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;});
+let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;showInstall();});
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isMobile=()=>matchMedia('(max-width:860px)').matches||isIOS()||/android/i.test(navigator.userAgent);
+function instSnoozed(){try{return Date.now()<+(localStorage.getItem('nb-inst-snooze')||0);}catch(e){return false;}}
+function showInstall(){const el=document.getElementById('inst');if(!el)return;
+  if(isStandalone()||!isMobile()||instSnoozed()||location.hash==='#admin'||(!installEvt&&!isIOS())){el.hidden=true;return;}
+  el.innerHTML=`<img src="icon-192.png" alt=""><div class="it"><b>התקינו את האפליקציה</b>פותחים בלחיצה ממסך הבית.</div><button class="btn" data-act="${installEvt?'install':'iosHow'}">התקנה</button><button class="x" data-act="instNo" aria-label="סגירה">×</button>`;el.hidden=false;}
+function iosHowDlg(){const share='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg>';
+  openDlg(`<h3>התקנה באייפון</h3><ol class="ios-steps"><li>לוחצים על כפתור השיתוף ${share} בתחתית ספארי</li><li>גוללים ובוחרים <b>"הוספה למסך הבית"</b></li><li>לוחצים <b>"הוספה"</b> למעלה</li></ol><p class="hint">אם פתחתם את האתר מתוך וואטסאפ או אינסטגרם, פתחו אותו קודם בספארי.</p><button class="btn" data-act="closeDlg">הבנתי</button>`);}
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;
 /* זהות נוכחית: לכל היותר נהג, מבקש (פרטי או ארגון) ומנהל */
 function reqIdentity(){if(!reqPhone)return null;
@@ -962,7 +972,7 @@ function accountDlg(choose){
     ${logged.length?`<div class="acct-list">${logged.join('')}</div>`:'<p class="hint" style="margin-top:-6px">מי את/ה?</p>'}
     ${logged.length&&!choose?'<div style="text-align:center;margin:10px 0"><button class="linkbtn" data-act="acctSwitch">כניסה לחשבון אחר</button></div>':`<div class="role-list">${roles.join('')}</div>`}
     <a class="partner-link" href="#about" data-act="closeDlg">רוצים לקחת חלק בפרויקט? <b>צרו קשר ←</b></a>
-    <div class="acct-foot">${adminOn?'':'<a href="#admin" data-act="closeDlg">כניסת צוות</a>'}${isStandalone()?'':installEvt?'<button class="linkbtn" data-act="install">התקנה בטלפון</button>':'<span class="hint">אפשר להוסיף למסך הבית מתפריט הדפדפן</span>'}</div>
+    <div class="acct-foot">${adminOn?'':'<a href="#admin" data-act="closeDlg">כניסת צוות</a>'}${isStandalone()?'':(installEvt||isIOS())?'<button class="linkbtn" data-act="install">התקנה בטלפון</button>':'<span class="hint">אפשר להוסיף למסך הבית מתפריט הדפדפן</span>'}</div>
     <div class="actions" style="justify-content:center"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
 }
 const ORG_TYPES={nonprofit:'עמותה',housing:'דיור מוגן / מסגרת / מרכז יום',welfare:'רשות מקומית / מחלקת רווחה',health:'קופת חולים / מרפאה',other:'ארגון אחר'};
@@ -1741,7 +1751,9 @@ document.addEventListener('click',async e=>{
     case 'gSignIn':try{await api.signIn();closeDlg();}catch(x){console.error(x);toast('הכניסה נכשלה. נסו שוב');}break;
     case 'gSignOut':closeDlg();await api.logout();toast('יצאת מהחשבון');break;
     case 'acctOut':if(LIVE){closeDlg();await api.logout();toast('יצאת מהחשבון');break;}if(el.dataset.who==='drv'){me=null;lsSet(ME_KEY,null);enterBoard();}else{reqPhone=null;lsSet(REQ_KEY,null);renderReqMine();}closeDlg();renderAccount();renderBell();toast('יצאת מהחשבון');break;
-    case 'install':if(installEvt){installEvt.prompt();installEvt=null;closeDlg();}break;
+    case 'install':if(installEvt){installEvt.prompt();const ch=await installEvt.userChoice.catch(()=>({}));installEvt=null;closeDlg();showInstall();if(ch.outcome==='accepted')toast('האפליקציה הותקנה');}else if(isIOS())iosHowDlg();break;
+    case 'iosHow':iosHowDlg();break;
+    case 'instNo':try{localStorage.setItem('nb-inst-snooze',Date.now()+14*864e5);}catch(e){}document.getElementById('inst').hidden=true;break;
     case 'bellClose':$('#bellPanel').hidden=true;break;
     case 'bellRead':{for(const n of notifs.filter(n=>myTargets().includes(n.to)&&!n.read))await api.update('notifs',n.id,{read:true});break;}
     case 'bellGo':{if(id)await api.update('notifs',id,{read:true});$('#bellPanel').hidden=true;if(el.dataset.link)location.hash=el.dataset.link;break;}
@@ -1826,7 +1838,7 @@ document.title=APP_NAME;$('#appName').textContent=APP_NAME;
 $('#nDays').innerHTML=DAYS.slice(0,6).map((d,i)=>`<label><input type="checkbox" name="days" value="${i}">${d}׳</label>`).join('')+'<span class="hint" style="align-self:center">בשבת המערכת לא פעילה</span>';
 $('#nNeeds').innerHTML=NEEDS.map(n=>`<label><input type="checkbox" name="needs" value="${n.k}">${n.i} ${n.t}</label>`).join('');
 needDefaults();
-window.addEventListener('hashchange',()=>{closeDlg();route();renderBell();renderAccount();});route();
+window.addEventListener('hashchange',()=>{closeDlg();route();renderBell();renderAccount();showInstall();});route();setTimeout(showInstall,1500);window.addEventListener('appinstalled',()=>{installEvt=null;showInstall();});
 if(DEMO){$('#demoBanner').hidden=false;document.querySelectorAll('[data-demo]').forEach(el=>el.hidden=false);$('#loginHint').textContent='גרסת הדגמה: לחצו "כניסה" גם בלי פרטים.';}
 try{api=DEMO?demoApi():await firebaseApi();}catch(x){console.error(x);toast('החיבור לשרת נכשל');api=demoApi();}
 enterBoard();renderReqMine();renderShabbat();renderBell();renderAccount();renderEasy();renderHomeLive();setInterval(()=>{renderShabbat();renderBell();},60000);
