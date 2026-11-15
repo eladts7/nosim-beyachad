@@ -308,20 +308,20 @@ async function firebaseApi(){
     listen(c,cb,onErr){
       const err=e=>{console.warn('listen',c,e.code||e);onErr&&onErr(e);};
       if(!user)return ()=>{};
-      if(c==='requests'){let pub=[],pv={};
-        const emit=()=>{const l=pub.map(r=>({...r,...(pv[r.id]||{})}));cacheReq=Object.fromEntries(l.map(r=>[r.id,r]));cb(l);};
-        const canAll=isAdmin||profile.orgApproved||profile.isDriver;
-        const qPub=canAll?C('requests'):fs.query(C('requests'),fs.where('createdBy','==',user.uid));
-        const qPv=isAdmin?C('reqPriv'):profile.orgApproved?fs.query(C('reqPriv'),fs.where('orgName','==',profile.orgName||'-')):null;
-        const un=[];const onPub=s=>{pub=s.docs.map(d=>({id:d.id,...d.data()}));emit();};
-        un.push(fs.onSnapshot(qPub,onPub,e=>{if(canAll){un.push(fs.onSnapshot(fs.query(C('requests'),fs.where('createdBy','==',user.uid)),onPub,err));}else err(e);}));
-        if(qPv)un.push(fs.onSnapshot(qPv,s=>{for(const d of s.docs)pv[d.id]=d.data();emit();},err));
-        if(!isAdmin){un.push(fs.onSnapshot(fs.query(C('reqPriv'),fs.where('createdBy','==',user.uid)),s=>{for(const d of s.docs)pv[d.id]=d.data();emit();},err));
-          if(profile.isDriver)un.push(fs.onSnapshot(fs.query(C('reqPriv'),fs.where('driverIds','array-contains',user.uid)),s=>{for(const d of s.docs)pv[d.id]=d.data();emit();},err));}
+      if(c==='requests'){const sets={},pv={};const un=[];
+        const emit=()=>{const m={};for(const k in sets)for(const r of sets[k])m[r.id]=r;const l=Object.values(m).map(r=>({...r,...(pv[r.id]||{})}));cacheReq=Object.fromEntries(l.map(r=>[r.id,r]));cb(l);};
+        const sub=(key,q)=>un.push(fs.onSnapshot(q,s=>{sets[key]=s.docs.map(d=>({id:d.id,...d.data()}));emit();},e=>{if(e.code!=='permission-denied')err(e);sets[key]=[];emit();}));
+        const subPv=q=>un.push(fs.onSnapshot(q,s=>{for(const d of s.docs)pv[d.id]=d.data();emit();},e=>{if(e.code!=='permission-denied')err(e);}));
+        if(isAdmin){sub('all',C('requests'));subPv(C('reqPriv'));return ()=>un.forEach(f=>f());}
+        sub('mine',fs.query(C('requests'),fs.where('createdBy','==',user.uid)));
+        subPv(fs.query(C('reqPriv'),fs.where('createdBy','==',user.uid)));
+        if(profile.orgApproved&&profile.orgName){sub('org',fs.query(C('requests'),fs.where('orgName','==',profile.orgName)));subPv(fs.query(C('reqPriv'),fs.where('orgName','==',profile.orgName)));}
+        if(profile.isDriver){sub('open',fs.query(C('requests'),fs.where('status','==','open')));sub('drv',fs.query(C('requests'),fs.where('driverIds','array-contains',user.uid)));
+          subPv(fs.query(C('reqPriv'),fs.where('driverIds','array-contains',user.uid)));}
         return ()=>un.forEach(f=>f());}
       if(c==='drivers'){let pub=[],pv={},docs={};
         const emit=()=>cb(pub.map(d=>{const x={...d,...(pv[d.id]||{})};if(docs[d.id]&&x.verification){x.verification={...x.verification};for(const k of Object.keys(docs[d.id]))if(x.verification[k])x.verification[k]={...x.verification[k],...docs[d.id][k]};}return x;}));
-        const un=[fs.onSnapshot(C('drivers'),s=>{pub=s.docs.map(d=>({id:d.id,...d.data()}));emit();},err)];
+        const un=[fs.onSnapshot(isAdmin?C('drivers'):fs.query(C('drivers'),fs.where('verification.status','==','approved')),s=>{pub=s.docs.map(d=>({id:d.id,...d.data()}));emit();},err)];
         if(isAdmin){un.push(fs.onSnapshot(C('driverPriv'),s=>{pv=Object.fromEntries(s.docs.map(d=>[d.id,d.data()]));emit();},err));un.push(fs.onSnapshot(C('driverDocs'),s=>{docs=Object.fromEntries(s.docs.map(d=>[d.id,d.data()]));emit();},err));}
         return ()=>un.forEach(f=>f());}
       if(c==='notifs'){const keys=['drv:'+user.uid,'req:'+user.uid];if(isAdmin)keys.push('admin');
@@ -995,6 +995,7 @@ function accountDlg(choose){
   if(me)logged.push(`<div class="acct-row on"><div><b>${esc(me.name)}</b><div class="hint">נהג/ת מתנדב/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
   if(ri)logged.push(`<div class="acct-row on"><div><b>${esc(ri.label)}</b><div class="hint">${ri.kind==='org'?'ארגון':'מבקש/ת פרטי/ת'} · <span dir="ltr">${esc(reqPhone)}</span></div></div><button class="btn ghost sm" data-act="goReqMine">לנסיעות</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
   if(adminOn)logged.push(`<div class="acct-row on"><div><b>צוות נוסעים ביחד</b></div><a class="btn ghost sm" href="#admin" data-act="closeDlg">לניהול</a><button class="btn ghost sm" data-act="logout">יציאה</button></div>`);
+  if(LIVE&&(api?.profile||{}).orgApproved&&(api.profile.orgRole==='admin'))logged.push(`<div class="acct-row"><div><b>הצוות של ${esc(api.profile.orgName||'הארגון')}</b><div class="hint">הוספה והסרה של אנשי צוות</div></div><button class="btn ghost sm" data-act="orgTeam">ניהול</button></div>`);
   if(logged.length){const pr=pushRow();if(pr)logged.push(pr);logged.push(`<div class="acct-row"><div><b>מחיקת החשבון</b><div class="hint">מחיקת הפרופיל והמידע האישי</div></div><button class="btn ghost sm" data-act="delAcct">מחיקה</button></div>`);}
   const role=(ic,t,sub,b1,b2)=>`<div class="role-card"><div class="role-head"><span>${ic}</span><div><b>${t}</b><div class="hint">${sub}</div></div></div><div class="role-btns">${b1}${b2}</div></div>`;
   const roles=[
@@ -1104,7 +1105,7 @@ function renderOrgs(){
     <div class="meta" style="margin-top:6px">${o.regNum?`<span>${isAm?'מס׳ עמותה':'ח.פ.'}: <a href="${regUrl}" target="_blank" rel="noopener" dir="ltr">${esc(o.regNum)}</a></span>`:'<span class="hint">גוף ציבורי, בלי מספר רשם</span>'}
       <span>${esc(o.contactName)}${o.role?` (${esc(o.role)})`:''} · <a dir="ltr" href="tel:${esc(cleanPhone(o.phone))}">${esc(o.phone)}</a> · <a dir="ltr" href="mailto:${esc(o.email)}">${esc(o.email)}</a></span>
       ${o.ridesPerMonth?`<span>כ-${esc(o.ridesPerMonth)} נסיעות בחודש</span>`:''}
-      ${o.status==='approved'?`<button class="linkbtn" data-act="filterQ" data-q="${esc(o.name)}">לנסיעות של הארגון ←</button>`:''}</div>
+      ${o.status==='approved'?`<button class="linkbtn" data-act="filterQ" data-q="${esc(o.name)}">לנסיעות של הארגון ←</button> <button class="linkbtn" data-act="orgTeam" data-org="${esc(o.name)}">הצוות של הארגון</button>`:''}</div>
     ${o.message?`<div class="meta" style="margin-top:6px">${esc(o.message)}</div>`:''}
     <div class="org-checks">${Object.entries(CK).map(([k,v])=>`<label><input type="checkbox" data-act="orgCheck" data-id="${o.id}" data-k="${k}" ${ck[k]?'checked':''} ${o.status==='approved'?'disabled':''}> ${v}</label>`).join('')}</div>
     ${o.note?`<div class="hint">${esc(o.note)}</div>`:''}
@@ -1365,6 +1366,8 @@ async function onLiveAuth(u){
   resetListeners();applyLiveGates();enterBoard();renderReqMine();renderAccount();renderBell();
   if(api.isAdmin)startDash();else stopDash();
   if(u)subscribePush(false);renderPushNote();
+  if(u&&!(api.profile||{}).orgApproved&&!onLiveAuth._tried){onLiveAuth._tried=true;
+    api.server('org-team',{action:'join'}).then(r=>{if(r.joined){toast('צורפת לצוות של '+r.orgName);setTimeout(()=>location.reload(),1200);}}).catch(()=>{});}
 }
 
 /* ===== עריכת נסיעה (ניהול) ===== */
@@ -1618,6 +1621,17 @@ function exportCsv(){
   const csv='﻿'+rows.map(row=>row.map(v=>{v=String(v??'');if(/^[=+\-@]/.test(v))v="'"+v;return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='nosim-beyachad-'+todayStr()+'.csv';document.body.appendChild(a);a.click();a.remove();
   toast('הקובץ ירד. הוא בלי שמות וטלפונים של נוסעים');}
+async function orgTeamDlg(orgName){
+  openDlg('<h3>הצוות של הארגון</h3><p class="hint">טוען…</p>');
+  let d;try{d=await api.server('org-team',{action:'list',orgName:orgName||''});}catch(e){openDlg(`<h3>הצוות של הארגון</h3><p class="err">${esc(e.message)}</p><div class="actions"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);return;}
+  const RL={admin:'מנהל/ת',staff:'צוות'};
+  openDlg(`<h3>הצוות של ${esc(d.orgName)}</h3>
+    <p class="hint">כל איש צוות רואה ומפרסם את הנסיעות של הארגון בלבד. מנהל/ת יכול/ה גם להוסיף ולהסיר אנשי צוות. מוסיפים לפי חשבון גוגל, והצירוף קורה בכניסה הבאה שלהם.</p>
+    <div class="list">${d.members.map(m=>`<div class="item" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span><b>${esc(m.name||m.email)}</b> <span class="hint" dir="ltr">${esc(m.email)}</span> · ${RL[m.role]||'צוות'}</span>${m.me?'':`<button class="btn ghost sm" data-act="orgTeamDel" data-org="${esc(orgName||'')}" data-e="${esc(m.email)}">הסרה</button>`}</div>`).join('')}
+    ${d.invites.map(i=>`<div class="item" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span dir="ltr">${esc(i.email)}</span><span class="hint">ממתין/ה לכניסה ראשונה · ${RL[i.role]||'צוות'}</span><button class="btn ghost sm" data-act="orgTeamDel" data-org="${esc(orgName||'')}" data-e="${esc(i.email)}">ביטול</button></div>`).join('')}</div>
+    <div class="grid" style="margin-top:12px"><div class="field"><label class="lbl" for="otEmail">מייל (חשבון גוגל)</label><input id="otEmail" type="email" dir="ltr" placeholder="name@gmail.com"></div>
+    <div class="field"><label class="lbl" for="otRole">תפקיד</label><select id="otRole"><option value="staff">צוות</option><option value="admin">מנהל/ת</option></select></div></div>
+    <div class="actions"><button class="btn" data-act="orgTeamAdd" data-org="${esc(orgName||'')}">הוספה</button><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);}
 function delAcctDlg(){openDlg(`<h3>מחיקת החשבון</h3><p>נמחקים לצמיתות: הפרופיל, פרטי הקשר, מסמכי הנהג, האימות וההתראות. נסיעות פתוחות שפרסמת יבוטלו. נסיעות שכבר בוצעו נשארות לסטטיסטיקה, בלי שם ובלי טלפון.</p>
   <p class="hint">אי אפשר לבטל את המחיקה. כדי לאשר, כתבו את המילה <b>מחיקה</b>.</p>
   <div class="field"><label class="lbl" for="delConfirm">אישור</label><input id="delConfirm" type="text" autocomplete="off"></div>
@@ -1823,7 +1837,7 @@ document.addEventListener('click',async e=>{
     case 'ofilter':oFilter=el.dataset.f;renderOrgs();break;
     case 'orgCheck':{const o=orgs.find(x=>x.id===id);await api.update('orgs',id,{checks:{...(o.checks||{}),[el.dataset.k]:el.checked}});break;}
     case 'orgSet':{const s=el.dataset.s;if(s==='rejected'&&!armed(el,'לדחות? לחצו שוב'))return;await api.update('orgs',id,{status:s,decidedAt:Date.now()});
-      {const o=orgs.find(x=>x.id===id);if(LIVE&&o?.ownerUid)await api.setMerge('users',o.ownerUid,{orgApproved:s==='approved',orgName:o.name});}toast(s==='approved'?'הארגון אושר ✓':s==='contacted'?'סומן: בתהליך':s==='rejected'?'הבקשה נדחתה':'עודכן');break;}
+      {const o=orgs.find(x=>x.id===id);if(LIVE&&o?.ownerUid)await api.setMerge('users',o.ownerUid,{orgApproved:s==='approved',orgName:o.name,orgRole:s==='approved'?'admin':''});}toast(s==='approved'?'הארגון אושר ✓':s==='contacted'?'סומן: בתהליך':s==='rejected'?'הבקשה נדחתה':'עודכן');break;}
     case 'cmDriver':cmDriverDlg(id);break;
     case 'cmOrg':cmOrgDlg(el.dataset.org);break;
     case 'cmDrivers':cmListDlg('drivers');break;
@@ -1858,6 +1872,9 @@ document.addEventListener('click',async e=>{
     case 'teamAdd':{const i=$('#teamEmail'),e=(i.value||'').trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast('כתובת מייל לא תקינה');break;}try{await api.addAdmin(e);toast('נוסף/ה לצוות');renderTeam();}catch(x){toast('לא הצלחנו להוסיף');}break;}
     case 'teamDel':{const e=el.dataset.e;if(e===(api.email||'').toLowerCase()){toast('אי אפשר להסיר את עצמך');break;}if(!armed(el,'להסיר? לחצו שוב'))return;try{await api.removeAdmin(e);toast('הוסר/ה מהצוות');renderTeam();}catch(x){toast('לא הצלחנו להסיר');}break;}
     case 'exportCsv':exportCsv();break;
+    case 'orgTeam':orgTeamDlg(el.dataset.org||'');break;
+    case 'orgTeamAdd':{const e=($('#otEmail').value||'').trim().toLowerCase();el.disabled=true;try{await api.server('org-team',{action:'invite',email:e,role:$('#otRole').value,orgName:el.dataset.org||''});toast('נוסף/ה. הצירוף יקרה בכניסה הבאה');orgTeamDlg(el.dataset.org||'');}catch(x){el.disabled=false;toast(x.message);}break;}
+    case 'orgTeamDel':{if(!armed(el,'להסיר? לחצו שוב'))return;try{await api.server('org-team',{action:'remove',email:el.dataset.e,orgName:el.dataset.org||''});toast('הוסר/ה');orgTeamDlg(el.dataset.org||'');}catch(x){toast(x.message);}break;}
     case 'delAcct':delAcctDlg();break;
     case 'delAcctGo':{const i=$('#delConfirm');if((i?.value||'').trim()!=='מחיקה'){toast('כדי למחוק, כתבו: מחיקה');break;}el.disabled=true;try{if(LIVE){await api.server('delete-account',{});try{await api.logout();}catch(e){}}else{localStorage.clear();}closeDlg();toast('החשבון והמידע האישי נמחקו');setTimeout(()=>location.reload(),1200);}catch(x){el.disabled=false;toast('המחיקה לא הצליחה: '+x.message);}break;}
     case 'afilter':aFilter=el.dataset.f;renderAdmin();break;
