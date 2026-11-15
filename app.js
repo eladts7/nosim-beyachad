@@ -128,6 +128,9 @@ const ITEMS={meds:'תרופות',equipment:'ציוד רפואי',docs:'מסמכ�
 const isDlv=r=>r?.rtype==='delivery';
 const rideWord=r=>isDlv(r)?'השליחות':'הנסיעה';
 const tw=r=>r.timeTo?`${r.time}–${r.timeTo}`:r.time;
+function waShare(r){const needs=isDlv(r)?`שליחות: ${ITEMS[r.item]||''}`:NEEDS.filter(n=>hasNeed(r,n.k)&&n.k!=='returnTrip').map(n=>n.t).join(', ');
+  const t=`${isDlv(r)?'שליחות':'נסיעה'} מחכה לנהג/ת מתנדב/ת\n${r.fromCity} ← ${r.toCity}\n${whenText(r).replace(/&[a-z#0-9]+;/g,'')}${needs?'\n'+needs:''}\n\nלוקחים כאן: ${location.origin}/#drive`;
+  return 'https://wa.me/?text='+encodeURIComponent(t);}
 function whenText(r){
   if(r.schedule==='weekly') return `כל שבוע · ${(r.days||[]).map(i=>DAYS[i]+'׳').join(', ')} · ${esc(tw(r))}`;
   return `${fmtDate(r.date)} · ${esc(tw(r))}`;
@@ -1474,7 +1477,7 @@ function renderAdmin(){
     ${Object.entries(r.covers||{}).flatMap(([dt,c])=>[c.feedback&&`${c.feedback.score>0?'משוב חיובי':'משוב שלילי'} מהמבקש (${fmtDate(dt)})${c.feedback.text?`: ${esc(c.feedback.text)}`:''}`,c.driverFeedback&&`${c.driverFeedback.score>0?'משוב חיובי':'משוב שלילי'} מהנהג/ת (${fmtDate(dt)})${c.driverFeedback.text?`: ${esc(c.driverFeedback.text)}`:''}`]).filter(Boolean).map(t=>`<div class="meta" style="margin-top:6px">${t}</div>`).join('')}
     ${r.driverFeedback?`<div class="meta" style="margin-top:6px">${r.driverFeedback.score>0?'משוב חיובי':'משוב שלילי'} מהנהג/ת${r.driverFeedback.text?`: ${esc(r.driverFeedback.text)}`:''}</div>`:''}
     <div class="actions">
-      ${r.status==='open'&&!isExpired(r)?`<button class="btn brand sm" data-act="assignDlg" data-id="${r.id}">שיבוץ נהג/ת</button>`:''}<button class="btn ghost sm" data-act="aedit" data-id="${r.id}">עריכה</button>
+      ${r.status==='open'&&!isExpired(r)?`<button class="btn brand sm" data-act="assignDlg" data-id="${r.id}">שיבוץ נהג/ת</button><a class="btn ghost sm" target="_blank" rel="noopener" href="${waShare(r)}">שיתוף בוואטסאפ</a>`:''}<button class="btn ghost sm" data-act="aedit" data-id="${r.id}">עריכה</button>
       ${r.status==='open'||r.status==='taken'?`<button class="btn danger sm" data-act="acancel" data-id="${r.id}">ביטול</button>`:`<button class="btn ghost sm" data-act="areopen" data-id="${r.id}">החזרה ללוח</button>`}
       ${r.status==='taken'?`<button class="btn ghost sm" data-act="release" data-id="${r.id}">שחרור הנהג הקבוע</button>`:''}
     </div></article>`;}).join(''):'<div class="empty">אין נסיעות בסינון הזה.</div>';
