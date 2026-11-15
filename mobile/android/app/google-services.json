@@ -1,0 +1,32 @@
+{
+  "project_info": {
+    "project_number": "405584454636",
+    "project_id": "nosim-beyachad",
+    "storage_bucket": "nosim-beyachad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:405584454636:android:4a9d0cdf70ef3ff44096c9",
+        "android_client_info": { "package_name": "il.nosimbeyachad.app" }
+      },
+      "oauth_client": [
+        {
+          "client_id": "405584454636-i5j9tp0ukubln0a3gqt1j460p357i4ts.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": { "package_name": "il.nosimbeyachad.app", "certificate_hash": "6ca67618b56f86a0d0b03dc8abd32d052082cddd" }
+        },
+        { "client_id": "405584454636-7u8h3ri1qp2t3c06dc7b6tjp35fe48ap.apps.googleusercontent.com", "client_type": 3 }
+      ],
+      "api_key": [ { "current_key": "AIzaSyBnetbJLcAFA9rhXKW8QvLqoOrGTTM19gI" } ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            { "client_id": "405584454636-7u8h3ri1qp2t3c06dc7b6tjp35fe48ap.apps.googleusercontent.com", "client_type": 3 }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -37,10 +37,20 @@ module.exports = async (req, res) => {
     else if (/^(drv|req):/.test(to)) q = db.collection('pushSubs').where('uid', '==', to.slice(4));
     else return res.json({ ok: true, sent: 0 });
     const subs = await q.get();
-    const payload = JSON.stringify({ title: 'נוסעים ביחד', body: String(n.text || '').slice(0, 300), url: '/' + String(n.link || '#home').replace(/^\//, '') });
+    const title = 'נוסעים ביחד', body = String(n.text || '').slice(0, 300), url = '/' + String(n.link || '#home').replace(/^\//, '');
+    const payload = JSON.stringify({ title, body, url });
     let sent = 0;
     await Promise.all(subs.docs.map(async s => {
-      try { await webpush.sendNotification(s.data().sub, payload, { TTL: 86400, urgency: 'high' }); sent++; }
+      const d = s.data();
+      if (d.fcm) {
+        try {
+          await admin.messaging().send({ token: d.fcm, notification: { title, body }, data: { url },
+            android: { priority: 'high', notification: { sound: 'default' } }, apns: { payload: { aps: { sound: 'default' } } } });
+          sent++;
+        } catch (e) { if (/registration-token-not-registered|invalid-registration-token|invalid-argument/.test(e.code || '')) await s.ref.delete(); }
+        return;
+      }
+      try { await webpush.sendNotification(d.sub, payload, { TTL: 86400, urgency: 'high' }); sent++; }
       catch (e) { if (e.statusCode === 404 || e.statusCode === 410) await s.ref.delete(); }
     }));
     res.json({ ok: true, sent });

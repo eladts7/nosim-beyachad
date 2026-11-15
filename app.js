@@ -2,6 +2,7 @@
 /* ===== הגדרות: מלאו את פרטי Firebase כדי לעבור מהדגמה לשימוש אמיתי ===== */
 const APP_NAME='נוסעים ביחד';
 const firebaseConfig={apiKey:'AIzaSyBnetbJLcAFA9rhXKW8QvLqoOrGTTM19gI',authDomain:'nosim-beyachad.firebaseapp.com',projectId:'nosim-beyachad',storageBucket:'nosim-beyachad.firebasestorage.app',messagingSenderId:'405584454636',appId:'1:405584454636:web:28ed73603795724f4096c9'};
+const NATIVE=!!window.Capacitor?.isNativePlatform?.();
 const DEMO=!firebaseConfig.apiKey||/[?&]demo=1/.test(location.search)||location.protocol==='file:';
 const LIVE=!DEMO;
 
@@ -251,16 +252,17 @@ async function firebaseApi(){
     live:true,
     get uid(){return user?.uid||null;},get email(){return user?.email||'';},get displayName(){return user?.displayName||'';},
     get isAdmin(){return isAdmin;},get profile(){return profile;},
-    async signIn(){const pr=new au.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
+    async signIn(){if(NATIVE){const FA=window.Capacitor.Plugins.FirebaseAuthentication;const r=await FA.signInWithGoogle();const t=r?.credential?.idToken;if(!t)throw new Error('no token');await au.signInWithCredential(auth,au.GoogleAuthProvider.credential(t));return;}
+      const pr=new au.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
       try{await au.signInWithPopup(auth,pr);}catch(e){if(/popup|cancel/i.test(e.code||'')&&!/closed-by-user/.test(e.code))await au.signInWithRedirect(auth,pr);else throw e;}},
-    logout:()=>au.signOut(auth),
+    logout:async()=>{if(NATIVE)try{await window.Capacitor.Plugins.FirebaseAuthentication.signOut();}catch(e){}return au.signOut(auth);},
     onAuth(f){au.onAuthStateChanged(auth,async u=>{user=u;profile={};isAdmin=false;
       if(u){isAdmin=ADMIN_EMAILS.includes((u.email||'').toLowerCase());
         try{const a=await fs.getDoc(D('admins',(u.email||'').toLowerCase()));if(a.exists())isAdmin=true;}catch(e){}
         try{const s=await fs.getDoc(D('users',u.uid));profile=s.exists()?s.data():{};}catch(e){console.error(e);}}
       f(u);});},
     async idToken(){return user?await user.getIdToken():'';},
-    async savePush(sub){if(!user)return;const k=user.uid+'_'+(sub.endpoint||'').slice(-24).replace(/[^A-Za-z0-9]/g,'');await fs.setDoc(D('pushSubs',k),{uid:user.uid,admin:isAdmin,sub,at:Date.now()});},
+    async savePush(sub,fcm){if(!user)return;const src=fcm||sub.endpoint||'';const k=user.uid+'_'+src.slice(-24).replace(/[^A-Za-z0-9]/g,'');await fs.setDoc(D('pushSubs',k),fcm?{uid:user.uid,admin:isAdmin,fcm,at:Date.now()}:{uid:user.uid,admin:isAdmin,sub,at:Date.now()});},
     async saveProfile(v){profile={...profile,...v};await fs.setDoc(D('users',user.uid),strip({...v,email:user.email||'',updatedAt:Date.now()}),{merge:true});},
     async add(c,v){
       v=strip(v);
@@ -938,8 +940,8 @@ function showInstall(){const el=document.getElementById('inst');if(!el)return;
   el.innerHTML=`<img src="icon-192.png" alt=""><div class="it"><b>התקינו את האפליקציה</b>פותחים בלחיצה ממסך הבית.</div><button class="btn" data-act="${installEvt?'install':'iosHow'}">התקנה</button><button class="x" data-act="instNo" aria-label="סגירה">×</button>`;el.hidden=false;}
 function iosHowDlg(){const share='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg>';
   openDlg(`<h3>התקנה באייפון</h3><ol class="ios-steps"><li>לוחצים על כפתור השיתוף ${share} בתחתית ספארי</li><li>גוללים ובוחרים <b>"הוספה למסך הבית"</b></li><li>לוחצים <b>"הוספה"</b> למעלה</li></ol><p class="hint">אם פתחתם את האתר מתוך וואטסאפ או אינסטגרם, פתחו אותו קודם בספארי.</p><button class="btn" data-act="closeDlg">הבנתי</button>`);}
-if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
-const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+if(!NATIVE&&'serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+const isStandalone=()=>NATIVE||matchMedia('(display-mode: standalone)').matches||navigator.standalone;
 /* זהות נוכחית: לכל היותר נהג, מבקש (פרטי או ארגון) ומנהל */
 function reqIdentity(){if(!reqPhone)return null;
   if(LIVE){const pr=api.profile||{};return pr.orgApproved?{kind:'org',label:pr.orgName}:{kind:'private',label:pr.name||api.displayName||'הנסיעות שלי'};}
@@ -1543,11 +1545,22 @@ function fitsAvail(d,date,time){
 /* ===== התראות ===== */
 async function notify(to,text,link){try{const id=await api.add('notifs',{to,text,link:link||'',at:Date.now(),read:false});
   if(LIVE&&id){const t=await api.idToken();fetch('/api/notify',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({id})}).catch(()=>{});}}catch(e){console.error(e);}}
+const PN=()=>window.Capacitor?.Plugins?.PushNotifications;
+let pnInit=false;
+async function nativePush(ask){const P=PN();if(!P||!api?.uid)return false;
+  if(!pnInit){pnInit=true;
+    P.addListener('registration',t=>{api.savePush(null,t.value).catch(()=>{});});
+    P.addListener('pushNotificationActionPerformed',a=>{const u=a?.notification?.data?.url||'';const i=u.indexOf('#');if(i>=0)location.hash=u.slice(i);});
+    P.addListener('pushNotificationReceived',n=>{toast(n.body||n.title||'עדכון חדש');renderBell();});}
+  let st=await P.checkPermissions();
+  if(st.receive!=='granted'){if(!ask)return false;st=await P.requestPermissions();if(st.receive!=='granted'){toast('לא אושרו התראות');renderAccount();renderPushNote();return false;}}
+  await P.register();if(ask)toast('התראות הופעלו');nativePushOn=true;renderAccount();renderPushNote();return true;}
+let nativePushOn=false;
 const VAPID_PUBLIC='BBOnxG9BzBdEmFPi0adCTRWXqIibAaNIYqHW5Srogx5GZeMdYb06n5HU6bmPrN7ANXamp9UWoSsU0CCFjt_QFG8';
 const pushSupported=()=>LIVE&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
-function pushStatus(){if(!LIVE)return 'demo';if(isIOS()&&!isStandalone())return 'ios-install';if(!pushSupported())return 'unsupported';return Notification.permission;}
+function pushStatus(){if(!LIVE)return 'demo';if(NATIVE)return nativePushOn?'granted':'default';if(isIOS()&&!isStandalone())return 'ios-install';if(!pushSupported())return 'unsupported';return Notification.permission;}
 function b64u(s){const p='='.repeat((4-s.length%4)%4);const r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(r,c=>c.charCodeAt(0));}
-async function subscribePush(ask){if(!pushSupported()||!api?.uid)return false;
+async function subscribePush(ask){if(NATIVE)return nativePush(ask);if(!pushSupported()||!api?.uid)return false;
   if(ask){const r=await Notification.requestPermission();if(r!=='granted'){toast(r==='denied'?'ההתראות חסומות. אפשר לאשר אותן בהגדרות הדפדפן':'לא אושרו התראות');renderAccount();return false;}}
   else if(Notification.permission!=='granted')return false;
   try{const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();

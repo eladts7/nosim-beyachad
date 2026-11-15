@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">נוסעים ביחד</string>
+    <string name="title_activity_main">נוסעים ביחד</string>
+    <string name="package_name">il.nosimbeyachad.app</string>
+    <string name="custom_url_scheme">il.nosimbeyachad.app</string>
+</resources>
