@@ -1,0 +1,9 @@
+{
+  "name": "nosim-beyachad",
+  "private": true,
+  "engines": { "node": "22.x" },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "web-push": "3.6.7"
+  }
+}

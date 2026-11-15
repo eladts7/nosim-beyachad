@@ -259,6 +259,8 @@ async function firebaseApi(){
         try{const a=await fs.getDoc(D('admins',(u.email||'').toLowerCase()));if(a.exists())isAdmin=true;}catch(e){}
         try{const s=await fs.getDoc(D('users',u.uid));profile=s.exists()?s.data():{};}catch(e){console.error(e);}}
       f(u);});},
+    async idToken(){return user?await user.getIdToken():'';},
+    async savePush(sub){if(!user)return;const k=user.uid+'_'+(sub.endpoint||'').slice(-24).replace(/[^A-Za-z0-9]/g,'');await fs.setDoc(D('pushSubs',k),{uid:user.uid,admin:isAdmin,sub,at:Date.now()});},
     async saveProfile(v){profile={...profile,...v};await fs.setDoc(D('users',user.uid),strip({...v,email:user.email||'',updatedAt:Date.now()}),{merge:true});},
     async add(c,v){
       v=strip(v);
@@ -962,6 +964,7 @@ function accountDlg(choose){
   if(me)logged.push(`<div class="acct-row on"><div><b>${esc(me.name)}</b><div class="hint">נהג/ת מתנדב/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
   if(ri)logged.push(`<div class="acct-row on"><div><b>${esc(ri.label)}</b><div class="hint">${ri.kind==='org'?'ארגון':'מבקש/ת פרטי/ת'} · <span dir="ltr">${esc(reqPhone)}</span></div></div><button class="btn ghost sm" data-act="goReqMine">לנסיעות</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
   if(adminOn)logged.push(`<div class="acct-row on"><div><b>צוות נוסעים ביחד</b></div><a class="btn ghost sm" href="#admin" data-act="closeDlg">לניהול</a><button class="btn ghost sm" data-act="logout">יציאה</button></div>`);
+  if(logged.length){const pr=pushRow();if(pr)logged.push(pr);}
   const role=(ic,t,sub,b1,b2)=>`<div class="role-card"><div class="role-head"><span>${ic}</span><div><b>${t}</b><div class="hint">${sub}</div></div></div><div class="role-btns">${b1}${b2}</div></div>`;
   const roles=[
     me?'':role('','אני נהג/ת מתנדב/ת','נהגי מוניות ואזרחים. נרשמים ומאמתים לבד','<button class="btn brand sm" data-act="goDrvReg">הרשמה</button>','<button class="btn ghost sm" data-act="goDrvLogin">כבר רשום/ה: כניסה</button>'),
@@ -1329,6 +1332,7 @@ async function onLiveAuth(u){
   else{me=null;reqPhone=null;}
   resetListeners();applyLiveGates();enterBoard();renderReqMine();renderAccount();renderBell();
   if(api.isAdmin)startDash();else stopDash();
+  if(u)subscribePush(false);renderPushNote();
 }
 
 /* ===== עריכת נסיעה (ניהול) ===== */
@@ -1537,7 +1541,26 @@ function fitsAvail(d,date,time){
 }
 
 /* ===== התראות ===== */
-async function notify(to,text,link){try{await api.add('notifs',{to,text,link:link||'',at:Date.now(),read:false});}catch(e){console.error(e);}}
+async function notify(to,text,link){try{const id=await api.add('notifs',{to,text,link:link||'',at:Date.now(),read:false});
+  if(LIVE&&id){const t=await api.idToken();fetch('/api/notify',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({id})}).catch(()=>{});}}catch(e){console.error(e);}}
+const VAPID_PUBLIC='BBOnxG9BzBdEmFPi0adCTRWXqIibAaNIYqHW5Srogx5GZeMdYb06n5HU6bmPrN7ANXamp9UWoSsU0CCFjt_QFG8';
+const pushSupported=()=>LIVE&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+function pushStatus(){if(!LIVE)return 'demo';if(isIOS()&&!isStandalone())return 'ios-install';if(!pushSupported())return 'unsupported';return Notification.permission;}
+function b64u(s){const p='='.repeat((4-s.length%4)%4);const r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(r,c=>c.charCodeAt(0));}
+async function subscribePush(ask){if(!pushSupported()||!api?.uid)return false;
+  if(ask){const r=await Notification.requestPermission();if(r!=='granted'){toast(r==='denied'?'ההתראות חסומות. אפשר לאשר אותן בהגדרות הדפדפן':'לא אושרו התראות');renderAccount();return false;}}
+  else if(Notification.permission!=='granted')return false;
+  try{const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUBLIC)});
+    await api.savePush(JSON.parse(JSON.stringify(sub)));if(ask)toast('התראות הופעלו');renderAccount();return true;}catch(e){console.error(e);if(ask)toast('לא הצלחנו להפעיל התראות');return false;}}
+function renderPushNote(){const el=document.getElementById('pushNote');if(!el)return;const s=pushStatus();
+  if(!me||s==='demo'||s==='unsupported'||s==='granted'||s==='denied'){el.hidden=true;return;}
+  el.innerHTML=s==='ios-install'?`<div><b>רוצים לדעת מיד על נסיעה חדשה?</b>באייפון מתקינים קודם את האפליקציה למסך הבית, ואז מפעילים התראות.</div><button class="btn sm" data-act="iosHow">איך</button>`
+    :`<div><b>רוצים לדעת מיד על נסיעה חדשה באזור שלכם?</b>נשלח התראה לטלפון, גם כשהאפליקציה סגורה.</div><button class="btn sm" data-act="pushOn">הפעלת התראות</button>`;el.hidden=false;}
+function pushRow(){const s=pushStatus();if(s==='demo'||s==='unsupported'||s==='granted'||!api?.uid)return '';
+  if(s==='ios-install')return `<div class="acct-row"><div><b>התראות לטלפון</b><div class="hint">באייפון צריך קודם להתקין את האפליקציה למסך הבית</div></div><button class="btn ghost sm" data-act="iosHow">איך מתקינים</button></div>`;
+  if(s==='denied')return `<div class="acct-row"><div><b>ההתראות חסומות</b><div class="hint">אפשר לאשר אותן בהגדרות הדפדפן של האתר</div></div></div>`;
+  return `<div class="acct-row"><div><b>התראות לטלפון</b><div class="hint">הודעה על נסיעה חדשה או עדכון, גם כשהאפליקציה סגורה</div></div><button class="btn sm" data-act="pushOn">הפעלה</button></div>`;}
 function notifyNewRide(r){
   const occ=occDates(r,1)[0];
   for(const d of allDrivers){
@@ -1753,6 +1776,7 @@ document.addEventListener('click',async e=>{
     case 'acctOut':if(LIVE){closeDlg();await api.logout();toast('יצאת מהחשבון');break;}if(el.dataset.who==='drv'){me=null;lsSet(ME_KEY,null);enterBoard();}else{reqPhone=null;lsSet(REQ_KEY,null);renderReqMine();}closeDlg();renderAccount();renderBell();toast('יצאת מהחשבון');break;
     case 'install':if(installEvt){installEvt.prompt();const ch=await installEvt.userChoice.catch(()=>({}));installEvt=null;closeDlg();showInstall();if(ch.outcome==='accepted')toast('האפליקציה הותקנה');}else if(isIOS())iosHowDlg();break;
     case 'iosHow':iosHowDlg();break;
+    case 'pushOn':await subscribePush(true);renderPushNote();break;
     case 'instNo':try{localStorage.setItem('nb-inst-snooze',Date.now()+14*864e5);}catch(e){}document.getElementById('inst').hidden=true;break;
     case 'bellClose':$('#bellPanel').hidden=true;break;
     case 'bellRead':{for(const n of notifs.filter(n=>myTargets().includes(n.to)&&!n.read))await api.update('notifs',n.id,{read:true});break;}

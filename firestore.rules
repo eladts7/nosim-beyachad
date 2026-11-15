@@ -122,6 +122,13 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && uid() == u);
       allow update, delete: if isAdmin();
     }
+    // Phone push subscriptions. Only the server (admin SDK) reads them.
+    match /pushSubs/{k} {
+      allow create, update: if signedIn() && request.resource.data.uid == uid() && k.matches(uid() + '_.*')
+        && (request.resource.data.get('admin', false) == false || isAdmin());
+      allow delete: if signedIn() && resource.data.uid == uid();
+      allow read: if false;
+    }
     match /contacts/{x} {
       allow create: if request.resource.data.status == 'new' && request.resource.data.keys().size() <= 12
         && smallText(request.resource.data.name, 100);

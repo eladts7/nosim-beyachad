@@ -124,6 +124,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
 .narrow{max-width:420px;margin:30px auto}
 .err{color:var(--danger);font-size:14px;min-height:20px}
 .me{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.push-note{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--brand-soft);border:1px solid var(--brand);border-radius:12px;padding:12px 14px;margin:10px 0 4px;font-size:15px}
+.push-note b{display:block}
 .inst{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;background:var(--ink);color:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 10px 30px rgba(16,24,40,.25);display:flex;gap:12px;align-items:center;max-width:520px;margin:0 auto}
 .inst img{width:44px;height:44px;border-radius:10px;flex:none}
 .inst .it{flex:1;font-size:14px;line-height:1.45}.inst .it b{display:block;font-size:16px}
@@ -632,6 +634,7 @@ html.a-still *{animation:none!important;transition:none!important;scroll-behavio
         <h1 style="margin:0">שלום <span id="meName"></span> </h1>
         <button class="btn ghost sm" data-act="driverOut">יציאה</button>
       </div>
+      <div class="push-note" id="pushNote" hidden></div>
       <div id="verifyBox"></div>
       <div class="tabs">
         <button class="tab on" data-act="dtab" data-tab="open">נסיעות פתוחות <span class="cnt" id="openCnt">0</span></button>
