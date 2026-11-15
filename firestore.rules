@@ -1,0 +1,131 @@
+rules_version = '2';
+// Nosim Beyachad security rules.
+// Personal details (name, phone, notes, care guidelines) live in reqPriv: requester, assigned driver and staff only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function email() { return request.auth.token.email.lower(); }
+    function isAdmin() {
+      return signedIn() && request.auth.token.email_verified == true &&
+        (email() in ['eladts7@gmail.com'] || exists(/databases/$(database)/documents/admins/$(email())));
+    }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(uid())).data; }
+    function hasUser() { return signedIn() && exists(/databases/$(database)/documents/users/$(uid())); }
+    function isOrg() { return hasUser() && userDoc().get('orgApproved', false) == true; }
+    function myOrg() { return userDoc().get('orgName', ''); }
+    function isDriver() { return signedIn() && exists(/databases/$(database)/documents/drivers/$(uid())); }
+    function drv() { return get(/databases/$(database)/documents/drivers/$(uid())).data; }
+    function isVerifiedDriver() {
+      return isDriver() && drv().get('verification', {}).get('status', '') == 'approved' && drv().get('active', true) != false;
+    }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function smallText(v, n) { return v is string && v.size() <= n; }
+
+    
+    match /users/{u} {
+      allow read: if isAdmin() || (signedIn() && uid() == u);
+      allow create: if isAdmin() || (signedIn() && uid() == u &&
+        request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'updatedAt', 'isDriver', 'kind']));
+      allow update: if isAdmin() || (signedIn() && uid() == u &&
+        changed().hasOnly(['name', 'phone', 'email', 'updatedAt', 'isDriver', 'kind']));
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{e} {
+      allow read: if signedIn() && email() == e;
+      allow write: if false;
+    }
+
+    
+    match /drivers/{d} {
+      allow read: if signedIn();
+      allow create: if signedIn() && uid() == d &&
+        request.resource.data.get('verification', {}).get('status', '') == 'none' &&
+        request.resource.data.get('active', true) == true &&
+        !('orgApprovals' in request.resource.data);
+      allow update: if isAdmin()
+        || (signedIn() && uid() == d && !changed().hasAny(['active', 'orgApprovals'])
+            && (!('verification' in changed()) || request.resource.data.verification.status in ['none', 'pending']))
+        || (signedIn() && uid() != d && changed().hasOnly(['thanks', 'fun']));
+      allow delete: if isAdmin();
+    }
+    match /driverPriv/{d} {
+      allow read, write: if isAdmin() || (signedIn() && uid() == d);
+    }
+    match /driverDocs/{d} {
+      allow read, write: if isAdmin() || (signedIn() && uid() == d);
+    }
+
+    
+    match /requests/{r} {
+      allow read: if isAdmin() || isVerifiedDriver() || isOrg()
+        || (signedIn() && resource.data.get('createdBy', '') == uid());
+      allow create: if signedIn() && request.resource.data.createdBy == uid() && (
+        isAdmin()
+        || (request.resource.data.kind == 'org' && isOrg() && request.resource.data.orgName == myOrg())
+        || (request.resource.data.kind == 'private' && (
+              request.resource.data.get('privPending', false) == true
+              || get(/databases/$(database)/documents/pvts/$(uid())).data.status == 'approved'))
+      );
+      allow update: if isAdmin()
+        || (signedIn() && resource.data.get('createdBy', '') == uid()
+            && !changed().hasAny(['createdBy', 'privPending']))
+        || (isOrg() && resource.data.get('kind', '') == 'org' && resource.data.get('orgName', '') == myOrg()
+            && !changed().hasAny(['createdBy', 'privPending']))
+        || (isVerifiedDriver()
+            && changed().hasOnly(['status', 'driverId', 'driverName', 'driverPhone', 'driverCar', 'takenAt',
+                                  'covers', 'stages', 'driverIds', 'doneAt', 'confirmed', 'driverFeedback'])
+            && (uid() in resource.data.get('driverIds', []) || uid() in request.resource.data.get('driverIds', [])));
+      allow delete: if isAdmin();
+    }
+
+    
+    match /reqPriv/{r} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.get('createdBy', '') == uid())
+        || (signedIn() && uid() in resource.data.get('driverIds', []))
+        || (isOrg() && resource.data.get('orgName', '') != '' && resource.data.orgName == myOrg());
+      allow create: if signedIn() && request.resource.data.createdBy == uid();
+      allow update: if isAdmin()
+        || (signedIn() && resource.data.get('createdBy', '') == uid() && !changed().hasAny(['createdBy']))
+        || (isOrg() && resource.data.get('orgName', '') == myOrg() && !changed().hasAny(['createdBy']))
+        || (isVerifiedDriver() && changed().hasOnly(['driverIds'])
+            && request.resource.data.driverIds == getAfter(/databases/$(database)/documents/requests/$(r)).data.driverIds);
+      allow delete: if isAdmin();
+    }
+
+    
+    match /notifs/{n} {
+      allow read: if signedIn() && (resource.data.to == 'drv:' + uid() || resource.data.to == 'req:' + uid()
+        || (resource.data.to == 'admin' && isAdmin()));
+      allow create: if signedIn() && request.resource.data.keys().hasOnly(['to', 'text', 'link', 'at', 'read'])
+        && smallText(request.resource.data.text, 500);
+      allow update: if signedIn() && (resource.data.to == 'drv:' + uid() || resource.data.to == 'req:' + uid()
+        || (resource.data.to == 'admin' && isAdmin())) && changed().hasOnly(['read']);
+      allow delete: if isAdmin();
+    }
+
+    
+    match /reports/{x} {
+      allow create: if signedIn() && request.resource.data.byUid == uid();
+      allow read, update, delete: if isAdmin();
+    }
+    match /orgs/{x} {
+      allow create: if signedIn() && request.resource.data.ownerUid == uid() && request.resource.data.status == 'pending';
+      allow read: if isAdmin() || (signedIn() && resource.data.get('ownerUid', '') == uid());
+      allow update, delete: if isAdmin();
+    }
+    match /pvts/{u} {
+      allow create: if signedIn() && uid() == u && request.resource.data.status == 'pending';
+      allow read: if isAdmin() || (signedIn() && uid() == u);
+      allow update, delete: if isAdmin();
+    }
+    match /contacts/{x} {
+      allow create: if request.resource.data.status == 'new' && request.resource.data.keys().size() <= 12
+        && smallText(request.resource.data.name, 100);
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}

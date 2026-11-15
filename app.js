@@ -1,7 +1,8 @@
 /* ===== הגדרות: מלאו את פרטי Firebase כדי לעבור מהדגמה לשימוש אמיתי ===== */
 const APP_NAME='נוסעים ביחד';
-const firebaseConfig={apiKey:'',authDomain:'',projectId:'',storageBucket:'',messagingSenderId:'',appId:''};
-const DEMO=!firebaseConfig.apiKey;
+const firebaseConfig={apiKey:'AIzaSyBnetbJLcAFA9rhXKW8QvLqoOrGTTM19gI',authDomain:'nosim-beyachad.firebaseapp.com',projectId:'nosim-beyachad',storageBucket:'nosim-beyachad.firebasestorage.app',messagingSenderId:'405584454636',appId:'1:405584454636:web:28ed73603795724f4096c9'};
+const DEMO=!firebaseConfig.apiKey||/[?&]demo=1/.test(location.search)||location.protocol==='file:';
+const LIVE=!DEMO;
 
 /* ===== קבועים ===== */
 const DAYS=['א','ב','ג','ד','ה','ו','ש'];
@@ -222,30 +223,100 @@ function demoApi(){
     watch:(c,id,cb)=>{const f=()=>cb(col(c)[id]?{id,...data[c][id]}:null);subs[c].push(f);f();return()=>{subs[c]=subs[c].filter(x=>x!==f);};},
     uploadDoc:async(driverId,key,file)=>({name:file.name,size:file.size,type:file.type.startsWith('image/')?'image/jpeg':file.type,url:await shrinkFile(file)}),
     reset:()=>{data=seed();save();},
+    setMerge:async()=>{},
     login:async()=>{user={email:'demo'};authSubs.forEach(f=>f(user));},
     logout:async()=>{user=null;authSubs.forEach(f=>f(null));},
     onAuth:f=>{authSubs.push(f);f(user);}
   };
 }
+/* ===== שרת אמיתי (Firebase) =====
+   פרטים אישיים נשמרים בנפרד מהנסיעה ונפתחים רק למי שמורשה (חוקי האבטחה בשרת אוכפים):
+   requests  – מה שנהג מאומת רואה בלוח (עיר, נקודה כללית, שעה, צרכים)
+   reqPriv   – שם, טלפון, הערות והנחיות שמירה: למבקש, לנהג שלקח ולצוות
+   drivers   – פרופיל נהג; driverPriv – טלפון ואיש קשר לחירום; driverDocs – מסמכי אימות (רק לצוות) */
+const REQ_PRIV=['contactName','phone','notes','cog'];
+const DRV_PRIV=['phone','emergencyName','emergencyPhone'];
+const ADMIN_EMAILS=['eladts7@gmail.com'];
 async function firebaseApi(){
   const base='https://www.gstatic.com/firebasejs/10.12.2/';
-  const [{initializeApp},fs,au,st]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js'),import(base+'firebase-storage.js')]);
-  const app=initializeApp(firebaseConfig),db=fs.getFirestore(app),auth=au.getAuth(app),storage=st.getStorage(app);
-  return {
-    add:async(c,v)=>(await fs.addDoc(fs.collection(db,c),v)).id,
-    set:(c,id,v)=>fs.setDoc(fs.doc(db,c,id),v),
-    update:(c,id,v)=>fs.updateDoc(fs.doc(db,c,id),v),
-    claim:(id,check,patch)=>fs.runTransaction(db,async tx=>{const ref=fs.doc(db,'requests',id);const s=await tx.get(ref);if(!s.exists()||!check(s.data()))throw new Error('taken');tx.update(ref,patch(s.data()));}),
-    findDriverByPhone:async p=>{const q=fs.query(fs.collection(db,'drivers'),fs.where('phone','==',cleanPhone(p)),fs.limit(1));const s=await fs.getDocs(q);return s.empty?null:{id:s.docs[0].id,...s.docs[0].data()};},
-    listen:(c,cb,onErr)=>{const q=(c==='requests'&&!auth.currentUser)?fs.query(fs.collection(db,c),fs.where('status','in',['open','taken'])):fs.collection(db,c);
-      return fs.onSnapshot(q,s=>cb(s.docs.map(d=>({id:d.id,...d.data()}))),onErr);},
-    watch:(c,id,cb)=>fs.onSnapshot(fs.doc(db,c,id),s=>cb(s.exists()?{id:s.id,...s.data()}:null),e=>console.error(e)),
-    uploadDoc:async(driverId,key,file)=>{const r=st.ref(storage,`drivers/${driverId}/${key}-${Date.now()}`);await st.uploadBytes(r,file,{contentType:file.type});return {name:file.name,size:file.size,type:file.type,url:await st.getDownloadURL(r)};},
-    reset:()=>{},
-    login:(e,p)=>au.signInWithEmailAndPassword(auth,e,p),
+  const [{initializeApp},fs,au]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js')]);
+  const app=initializeApp(firebaseConfig),db=fs.getFirestore(app),auth=au.getAuth(app);
+  const D=(c,id)=>fs.doc(db,c,id),C=c=>fs.collection(db,c);
+  const split=(o,keys)=>{const a={},b={};for(const [k,v] of Object.entries(o||{}))(keys.includes(k)?b:a)[k]=v;return [a,b];};
+  const driverIdsOf=r=>[...new Set([r.driverId,...Object.values(r.covers||{}).map(c=>c&&c.driverId)].filter(Boolean))];
+  let user=null,profile={},isAdmin=false,cacheReq={};
+  const strip=o=>JSON.parse(JSON.stringify(o));
+  const api={
+    live:true,
+    get uid(){return user?.uid||null;},get email(){return user?.email||'';},get displayName(){return user?.displayName||'';},
+    get isAdmin(){return isAdmin;},get profile(){return profile;},
+    async signIn(){const pr=new au.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
+      try{await au.signInWithPopup(auth,pr);}catch(e){if(/popup|cancel/i.test(e.code||'')&&!/closed-by-user/.test(e.code))await au.signInWithRedirect(auth,pr);else throw e;}},
     logout:()=>au.signOut(auth),
-    onAuth:f=>au.onAuthStateChanged(auth,f)
+    onAuth(f){au.onAuthStateChanged(auth,async u=>{user=u;profile={};isAdmin=false;
+      if(u){isAdmin=ADMIN_EMAILS.includes((u.email||'').toLowerCase());
+        try{const a=await fs.getDoc(D('admins',(u.email||'').toLowerCase()));if(a.exists())isAdmin=true;}catch(e){}
+        try{const s=await fs.getDoc(D('users',u.uid));profile=s.exists()?s.data():{};}catch(e){console.error(e);}}
+      f(u);});},
+    async saveProfile(v){profile={...profile,...v};await fs.setDoc(D('users',user.uid),strip({...v,email:user.email||'',updatedAt:Date.now()}),{merge:true});},
+    async add(c,v){
+      v=strip(v);
+      if(c==='requests'){const ref=fs.doc(C('requests'));const [pub,pv]=split(v,REQ_PRIV);const b=fs.writeBatch(db);
+        const ids=driverIdsOf(pub);b.set(ref,{...pub,createdBy:user.uid,driverIds:ids});b.set(D('reqPriv',ref.id),{...pv,createdBy:user.uid,orgName:pub.kind==='org'?pub.orgName||'':'',driverIds:ids});await b.commit();return ref.id;}
+      if(c==='orgs')v.ownerUid=user.uid;
+      if(c==='reports')v.byUid=user.uid;
+      return (await fs.addDoc(C(c),v)).id;},
+    async set(c,id,v){v=strip(v);if(c==='pvts')id=user.uid;await fs.setDoc(D(c,id),v);},
+    async update(c,id,v){
+      v=strip(v);
+      if(c==='requests'){const [pub,pv]=split(v,REQ_PRIV);const b=fs.writeBatch(db);const cur={...(cacheReq[id]||{}),...pub};
+        if('driverId' in pub||'covers' in pub){const ids=driverIdsOf(cur);const old=(cacheReq[id]||{}).driverIds||[];if(JSON.stringify([...ids].sort())!==JSON.stringify([...old].sort())){pub.driverIds=ids;pv.driverIds=ids;}}
+        if(Object.keys(pub).length)b.update(D('requests',id),pub);if(Object.keys(pv).length)b.update(D('reqPriv',id),pv);await b.commit();return;}
+      if(c==='drivers'){const [pub,pv]=split(v,DRV_PRIV);let docs=null;
+        if(pub.verification){const ver={...pub.verification};docs={};for(const k of ['license','insurance','police'])if(ver[k]&&ver[k].url){docs[k]={url:ver[k].url,name:ver[k].name||'',type:ver[k].type||''};ver[k]={...ver[k]};delete ver[k].url;ver[k].hasFile=true;}pub.verification=ver;}
+        const b=fs.writeBatch(db);if(Object.keys(pub).length)b.update(D('drivers',id),pub);if(Object.keys(pv).length)b.set(D('driverPriv',id),pv,{merge:true});if(docs&&Object.keys(docs).length)b.set(D('driverDocs',id),docs,{merge:true});await b.commit();return;}
+      await fs.updateDoc(D(c,id),v);},
+    async getDriver(){if(!user)return null;try{const [a,b]=await Promise.all([fs.getDoc(D('drivers',user.uid)),fs.getDoc(D('driverPriv',user.uid)).catch(()=>null)]);return a.exists()?{id:a.id,...a.data(),...(b&&b.exists()?b.data():{})}:null;}catch(e){console.warn(e);return null;}},
+    setMerge:(c,id,v)=>fs.setDoc(D(c,id),strip(v),{merge:true}),
+    async registerDriver(d){d=strip(d);const [pub,pv]=split(d,DRV_PRIV);const b=fs.writeBatch(db);
+      b.set(D('drivers',user.uid),{...pub,verification:{status:'none'},active:true,createdAt:Date.now()});b.set(D('driverPriv',user.uid),pv);await b.commit();return user.uid;},
+    claim:(id,check,patch)=>fs.runTransaction(db,async tx=>{const ref=D('requests',id);const s=await tx.get(ref);if(!s.exists()||!check(s.data()))throw new Error('taken');
+      const p=patch(s.data());const ids=driverIdsOf({...s.data(),...p});tx.update(ref,{...p,driverIds:ids});tx.update(D('reqPriv',id),{driverIds:ids});}),
+    findDriverByPhone:async()=>null,
+    listen(c,cb,onErr){
+      const err=e=>{console.warn('listen',c,e.code||e);onErr&&onErr(e);};
+      if(!user)return ()=>{};
+      if(c==='requests'){let pub=[],pv={};
+        const emit=()=>{const l=pub.map(r=>({...r,...(pv[r.id]||{})}));cacheReq=Object.fromEntries(l.map(r=>[r.id,r]));cb(l);};
+        const canAll=isAdmin||profile.orgApproved||profile.isDriver;
+        const qPub=canAll?C('requests'):fs.query(C('requests'),fs.where('createdBy','==',user.uid));
+        const qPv=isAdmin?C('reqPriv'):profile.orgApproved?fs.query(C('reqPriv'),fs.where('orgName','==',profile.orgName||'-')):null;
+        const un=[];const onPub=s=>{pub=s.docs.map(d=>({id:d.id,...d.data()}));emit();};
+        un.push(fs.onSnapshot(qPub,onPub,e=>{if(canAll){un.push(fs.onSnapshot(fs.query(C('requests'),fs.where('createdBy','==',user.uid)),onPub,err));}else err(e);}));
+        if(qPv)un.push(fs.onSnapshot(qPv,s=>{for(const d of s.docs)pv[d.id]=d.data();emit();},err));
+        if(!isAdmin){un.push(fs.onSnapshot(fs.query(C('reqPriv'),fs.where('createdBy','==',user.uid)),s=>{for(const d of s.docs)pv[d.id]=d.data();emit();},err));
+          if(profile.isDriver)un.push(fs.onSnapshot(fs.query(C('reqPriv'),fs.where('driverIds','array-contains',user.uid)),s=>{for(const d of s.docs)pv[d.id]=d.data();emit();},err));}
+        return ()=>un.forEach(f=>f());}
+      if(c==='drivers'){let pub=[],pv={},docs={};
+        const emit=()=>cb(pub.map(d=>{const x={...d,...(pv[d.id]||{})};if(docs[d.id]&&x.verification){x.verification={...x.verification};for(const k of Object.keys(docs[d.id]))if(x.verification[k])x.verification[k]={...x.verification[k],...docs[d.id][k]};}return x;}));
+        const un=[fs.onSnapshot(C('drivers'),s=>{pub=s.docs.map(d=>({id:d.id,...d.data()}));emit();},err)];
+        if(isAdmin){un.push(fs.onSnapshot(C('driverPriv'),s=>{pv=Object.fromEntries(s.docs.map(d=>[d.id,d.data()]));emit();},err));un.push(fs.onSnapshot(C('driverDocs'),s=>{docs=Object.fromEntries(s.docs.map(d=>[d.id,d.data()]));emit();},err));}
+        return ()=>un.forEach(f=>f());}
+      if(c==='notifs'){const keys=['drv:'+user.uid,'req:'+user.uid];if(isAdmin)keys.push('admin');
+        return fs.onSnapshot(fs.query(C('notifs'),fs.where('to','in',keys)),s=>cb(s.docs.map(d=>({id:d.id,...d.data()}))),err);}
+      if(c==='pvts'&&!isAdmin)return fs.onSnapshot(D('pvts',user.uid),s=>cb(s.exists()?[{id:s.id,...s.data()}]:[]),err);
+      if(c==='orgs'&&!isAdmin)return fs.onSnapshot(fs.query(C('orgs'),fs.where('ownerUid','==',user.uid)),s=>cb(s.docs.map(d=>({id:d.id,...d.data()}))),err);
+      if(['reports','contacts','orgs','pvts'].includes(c)&&!isAdmin){cb([]);return ()=>{};}
+      return fs.onSnapshot(C(c),s=>cb(s.docs.map(d=>({id:d.id,...d.data()}))),err);},
+    watch(c,id,cb){if(c!=='drivers')return fs.onSnapshot(D(c,id),s=>cb(s.exists()?{id:s.id,...s.data()}:null));
+      let a=null,b={};const emit=()=>cb(a?{...a,...b}:null);
+      const u1=fs.onSnapshot(D('drivers',id),s=>{a=s.exists()?{id:s.id,...s.data()}:null;emit();},e=>console.warn(e));
+      const u2=fs.onSnapshot(D('driverPriv',id),s=>{b=s.exists()?s.data():{};emit();},e=>console.warn(e));
+      return ()=>{u1();u2();};},
+    uploadDoc:async(driverId,key,file)=>({name:file.name,size:file.size,type:file.type.startsWith('image/')?'image/jpeg':file.type,url:await shrinkFile(file)}),
+    reset:()=>{},login:async()=>api.signIn()
   };
+  return api;
 }
 let api;
 
@@ -301,9 +372,11 @@ async function submitNeed(e){
   if(!r.time) return err.textContent='נא לבחור שעת איסוף.';
   if(r.needs.includes('returnTrip')&&!retTime) return err.textContent='נא לבחור שעת איסוף לחזור.';
   if(r.needs.includes('returnTrip')&&retTime<=r.time) return err.textContent='שעת החזור צריכה להיות אחרי שעת האיסוף.';
+  if(LIVE&&!api.uid){gSignInDlg('כדי לפרסם נסיעה נכנסים פעם אחת עם חשבון גוגל.');return err.textContent='צריך להיכנס עם חשבון גוגל.';}
+  if(LIVE&&r.kind==='org'&&!adminAdding){const pr=api.profile||{};if(!pr.orgApproved)return err.textContent='הארגון עדיין לא אושר. אחרי שיחת ההיכרות הצוות יאשר אתכם.';r.orgName=pr.orgName;}
   let pv=null;
   if(r.kind==='private'&&!adminAdding){
-    const known=pvts.find(x=>x.id===cleanPhone(r.phone));
+    const known=myPvt(r.phone);
     if(known?.status==='blocked')return err.textContent='לא ניתן לפרסם נסיעות מהמספר הזה. לבירור: פנו לצוות נוסעים ביחד.';
     if(!known||known.status!=='approved'){
       const tz=s('tz').replace(/\D/g,'');
@@ -329,7 +402,7 @@ async function submitNeed(e){
   try{
     if(retTime)r.returnTime=retTime;
     if(r.kind==='private'&&!adminAdding){
-      const pid=cleanPhone(r.phone),known=pvts.find(x=>x.id===pid);
+      const pid=LIVE?api.uid:cleanPhone(r.phone),known=myPvt(r.phone);
       if(!known||known.status!=='approved'){r.privPending=true;
         if(!known){await api.set('pvts',pid,{name:r.contactName,phone:r.phone,...pv,status:'pending',at:Date.now()});notify('admin',`מבקש/ת פרטי/ת חדש/ה לאימות: ${r.contactName}`,'#admin');}}
     }
@@ -364,9 +437,14 @@ function driverLine(d){
     ${d.driverCar?`<div class="car">${esc(d.driverCar)}</div>`:''}${trustLine(d.driverId)}</div>`;
 }
 /* נסיעות שהנהג סימן כבוצעו ומחכות לאישור המבקש */
+function isMine(r){return LIVE?(!!api?.uid&&r.createdBy===api.uid):(!!reqPhone&&cleanPhone(r.phone)===cleanPhone(reqPhone));}
+function myReqKey(){return LIVE?'req:'+(api?.uid||'-'):'req:'+cleanPhone(reqPhone||'');}
+function rk(r){return LIVE&&r.createdBy?'req:'+r.createdBy:'req:'+cleanPhone(r.phone||'');}
+function ownerKey(r){return LIVE?r.createdBy:cleanPhone(r.phone||'');}
+function myPvt(phone){return LIVE?pvts.find(x=>x.id===api?.uid):pvts.find(x=>x.id===cleanPhone(phone||''));}
 function pendingConfirms(phone){
   const out=[];
-  for(const r of requests){ if(cleanPhone(r.phone)!==cleanPhone(phone))continue;
+  for(const r of requests){ if(!isMine(r))continue;
     if(r.status==='done'&&r.confirmed==null&&r.driverId)out.push({r,date:r.date,name:r.driverName,driverId:r.driverId,key:''});
     for(const [dt,c] of Object.entries(r.covers||{})) if(c.done&&c.confirmed==null)out.push({r,date:dt,name:c.driverName,driverId:c.driverId,key:dt});
   }
@@ -376,7 +454,7 @@ function renderReqMine(){
   try{renderAccount();}catch(e){}
   const has=!!reqPhone;
   $('#reqGate').hidden=has;$('#reqMine').hidden=!has;
-  const mine=has?requests.filter(r=>cleanPhone(r.phone)===cleanPhone(reqPhone)&&r.status!=='cancelled'&&!isExpired(r)):[];
+  const mine=has?requests.filter(r=>isMine(r)&&r.status!=='cancelled'&&!isExpired(r)):[];
   const missing=mine.filter(r=>occDates(r,2).some(d=>!driverFor(r,d))).length;
   const cnt=$('#reqMineCnt');cnt.hidden=!missing;cnt.textContent=missing;
   if(!has) return;
@@ -410,7 +488,7 @@ function renderReqMine(){
 
 /* ===== נהגים ===== */
 const ME_KEY='rides-v5-me';
-let me=lsGet(ME_KEY),meUnsub=null,vDraft=null,vDecl=false,driverTab='open',boardFilter='all';
+let me=DEMO?lsGet(ME_KEY):null,meUnsub=null,vDraft=null,vDecl=false,driverTab='open',boardFilter='all';
 const isVerified=()=>me?.verification?.status==='approved';
 function enterBoard(){
   try{renderAccount();}catch(e){}
@@ -436,6 +514,9 @@ async function submitReg(e){
   if(!validPhone(d.phone)) return err.textContent='מספר הטלפון לא תקין.';
   if(fd.get('terms')!=='1') return err.textContent='נא לאשר את תנאי השימוש וקוד ההתנהגות.';
   const btn=f.querySelector('[type=submit]');btn.disabled=true;
+  if(LIVE){if(!api.uid){btn.disabled=false;return err.textContent='קודם נכנסים עם חשבון גוגל.';}
+    try{await api.registerDriver(d);await api.saveProfile({name:d.name,phone:d.phone,isDriver:true});me={id:api.uid,...d};enterBoard();toast('נרשמת! עכשיו האימות');}
+    catch(x){console.error(x);err.textContent='ההרשמה נכשלה. נסו שוב.';}btn.disabled=false;return;}
   try{const exist=await api.findDriverByPhone(d.phone);const id=exist?exist.id:await api.add('drivers',d);
     me={id,...(exist||d)};enterBoard();toast(exist?'ברוך שובך! כבר היית רשום/ה':'נרשמת! עכשיו האימות ');}
   catch(x){console.error(x);err.textContent='ההרשמה נכשלה. נסו שוב.';}
@@ -814,7 +895,9 @@ function cmOrgDlg(o){
 let installEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;});
 const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;
 /* זהות נוכחית: לכל היותר נהג, מבקש (פרטי או ארגון) ומנהל */
-function reqIdentity(){if(!reqPhone)return null;const p=cleanPhone(reqPhone);
+function reqIdentity(){if(!reqPhone)return null;
+  if(LIVE){const pr=api.profile||{};return pr.orgApproved?{kind:'org',label:pr.orgName}:{kind:'private',label:pr.name||api.displayName||'הנסיעות שלי'};}
+  const p=cleanPhone(reqPhone);
   const o=orgs.find(x=>cleanPhone(x.phone)===p&&x.status==='approved')||null;
   const r=requests.find(x=>cleanPhone(x.phone)===p);
   if(o)return {kind:'org',label:o.name};
@@ -830,6 +913,7 @@ function renderAccount(){
   s.hidden=!(me||ri||adminOn);
 }
 function accountDlg(choose){
+  if(LIVE&&!api.uid){gSignInDlg();return;}
   const ri=reqIdentity(),logged=[];
   if(me)logged.push(`<div class="acct-row on"><div><b>${esc(me.name)}</b><div class="hint">נהג/ת מתנדב/ת</div></div><a class="btn ghost sm" href="#drive" data-act="closeDlg">ללוח</a><button class="btn ghost sm" data-act="acctOut" data-who="drv">יציאה</button></div>`);
   if(ri)logged.push(`<div class="acct-row on"><div><b>${esc(ri.label)}</b><div class="hint">${ri.kind==='org'?'ארגון':'מבקש/ת פרטי/ת'} · <span dir="ltr">${esc(reqPhone)}</span></div></div><button class="btn ghost sm" data-act="goReqMine">לנסיעות</button><button class="btn ghost sm" data-act="acctOut" data-who="req">יציאה</button></div>`);
@@ -896,7 +980,7 @@ function renderPvts(){
   const PF={pending:`ממתינים (${waiting})`,approved:'מאומתים',blocked:'חסומים',all:'הכל'};
   $('#pChips').innerHTML=Object.entries(PF).map(([k,v])=>`<button class="chip ${k===pFilter?'on':''}" data-act="pfilter" data-f="${k}">${v}</button>`).join('');
   const l=pvts.filter(x=>pFilter==='all'||x.status===pFilter).sort((a,b)=>b.at-a.at);
-  $('#aPvtList').innerHTML=l.length?l.map(x=>{const rides=requests.filter(r=>cleanPhone(r.phone)===x.id&&r.status!=='cancelled');const used=monthlyRides(x.phone),lim=x.refName?12:6;
+  $('#aPvtList').innerHTML=l.length?l.map(x=>{const rides=requests.filter(r=>ownerKey(r)===x.id&&r.status!=='cancelled');const used=monthlyRides(x.phone),lim=x.refName?12:6;
     const abuse=reports.filter(p=>p.type==='abuse'&&rides.some(r=>r.id===p.rideId)).length;
     return `<article class="item ${x.status==='blocked'?'inactive':''}">
     <div class="item-top"><span class="when">${esc(x.name)}</span><span class="badge ${x.status==='approved'?'s-done':x.status==='blocked'?'s-cancelled':'s-open'}">${PSTAT[x.status]}</span></div>
@@ -1073,7 +1157,7 @@ function speak(text){
 }
 function ezDays(){const out=[];for(let i=0;out.length<6&&i<12;i++){const iso=addDays(i);if(isRestDay(iso))continue;const d=new Date(iso+'T12:00');out.push({iso,l:i===0?'היום':i===1?'מחר':'יום '+DAYN[d.getDay()],s:`${d.getDate()}.${d.getMonth()+1}`});}return out;}
 const EZ_STEPS=['to','from','when','needs','who','confirm'];
-function ezNeedsWho(){const known=pvts.find(x=>x.id===cleanPhone(ezProf.phone||''));return !(ezProf.contactName&&ezProf.phone)||(ezProf.kind==='private'&&!(known&&known.status==='approved')&&!ezProf.verified);}
+function ezNeedsWho(){const known=myPvt(ezProf.phone||'');return !(ezProf.contactName&&ezProf.phone)||(ezProf.kind==='private'&&!(known&&known.status==='approved')&&!ezProf.verified);}
 function ezSay(){
   const s=ez.step;
   return s==='to'?'לאן נוסעים? לוחצים על המיקרופון ואומרים, למשל: מחר בתשע לקופת חולים. או בוחרים אחד הכפתורים.'
@@ -1127,7 +1211,7 @@ function renderEasy(){
       <h2 class="ez-h2">למה הנסיעה? (לא חובה)</h2><div class="ez-grid p">${Object.entries(PURPOSES).map(([k,v])=>`<button class="ez-chip ${ez.purpose===k?'on':''}" data-act="ezPurp" data-v="${k}">${v}</button>`).join('')}</div>
       <button class="btn brand ez-next" data-act="ezNeedsNext">המשך</button>`;
   }else if(s==='who'){
-    const known=pvts.find(x=>x.id===cleanPhone(ezProf.phone||''));const needVer=!(known&&known.status==='approved');
+    const known=myPvt(ezProf.phone||'');const needVer=!(known&&known.status==='approved');
     body=`<h1>פרטים לתיאום</h1><p class="ez-hint">פעם אחת, ונזכור לפעם הבאה. הנהג יקבל את הטלפון רק אחרי שילקח את הנסיעה.</p>
       <div class="ez-search"><div class="ez-row"><input id="ezName" type="text" placeholder="שם הנוסע/ת" autocomplete="name" value="${esc(ezProf.contactName||'')}"><input id="ezPhone" type="tel" inputmode="tel" placeholder="טלפון" autocomplete="tel" value="${esc(ezProf.phone||'')}"></div>
       ${needVer?`<div class="priv-box" style="margin-top:12px"><b>אימות קצר בפעם הראשונה</b><p class="hint" style="margin:4px 0 8px">כדי שההתנדבות תגיע למי שבאמת צריך. נשמרות רק 4 הספרות האחרונות של תעודת הזהות.</p>
@@ -1171,6 +1255,36 @@ async function ezPublish(){
   ezProf.lastTo={place:ez.toPlace||'',city:ez.toCity||''};ezProf.needs=ez.needs||[];ezProf.verified=true;saveEzProf();
   ez={step:'to'};renderEasy();
   setTabs('ntab','mine',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});renderReqMine();toast('פורסם! נעדכן כשנהג/ת ייקח/תיקח את הנסיעה');
+}
+
+
+/* ===== כניסה עם גוגל (שרת אמיתי) ===== */
+const G_ICON='<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+const gBtn=(t='כניסה עם Google')=>`<button class="btn g-btn" data-act="gSignIn">${G_ICON}<span>${t}</span></button>`;
+function gSignInDlg(why){
+  openDlg(`<h2 style="margin-top:0">כניסה לנוסעים ביחד</h2><p>${why||'נכנסים פעם אחת עם חשבון גוגל, ואחר כך בוחרים: נהג/ת, צריך/ה הסעה או ארגון.'}</p>
+    ${gBtn()}<p class="hint" style="margin-top:12px">אנחנו לא מפרסמים דבר בשמך ולא ניגשים למייל שלך. הכתובת משמשת רק לזיהוי.</p>
+    <div class="actions" style="justify-content:center"><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);
+}
+function applyLiveGates(){
+  if(!LIVE)return;
+  const gate=$('#driverGate');
+  let box=$('#gDrvBox');if(!box){box=document.createElement('div');box.id='gDrvBox';box.className='card narrow g-box';gate.querySelector('.login-strip')?.after(box);}
+  gate.querySelector('.login-strip')?.setAttribute('hidden','');$('#dLoginBox').hidden=true;$('#backForm')?.closest('.card, .back-box, div')?.setAttribute('hidden','');
+  const reg=$('#regForm')?.closest('.card');
+  if(!api.uid){box.hidden=false;box.innerHTML=`<b>כבר רשומים, או רוצים להצטרף?</b><p class="hint">נכנסים עם חשבון גוגל. מי שכבר רשום ייכנס ישר ללוח.</p>${gBtn()}`;if(reg)reg.hidden=true;}
+  else{box.hidden=false;box.innerHTML=`<span class="hint">מחובר/ת כ-${esc(api.email)} · <button class="linkbtn" data-act="gSignOut">החלפת חשבון</button></span>`;if(reg)reg.hidden=false;const n=$('#dName');if(n&&!n.value)n.value=api.displayName||'';}
+  const lb=$('#loginBox');if(lb){const f=$('#loginForm');if(f)f.hidden=true;let g=$('#gAdmBox');if(!g){g=document.createElement('div');g.id='gAdmBox';f.after(g);}
+    g.innerHTML=api.uid&&!api.isAdmin?`<p>החשבון ${esc(api.email)} עדיין לא מורשה לניהול.</p><button class="btn ghost" data-act="gSignOut">כניסה בחשבון אחר</button>`:`<p class="hint">כניסת צוות עם חשבון גוגל מורשה.</p>${gBtn()}`;}
+}
+let liveUnsubs=[];
+function resetListeners(){(extraUnsub||[]).forEach(f=>{try{f&&f();}catch(e){}});extraUnsub=null;if(reqUnsub){try{reqUnsub();}catch(e){}reqUnsub=null;}requests=[];reports=[];notifs=[];allDrivers=[];orgs=[];pvts=[];contacts=[];ensureRequests();}
+async function onLiveAuth(u){
+  if(u){const d=await api.getDriver();me=d?{...d,id:api.uid}:null;reqPhone=(api.profile||{}).phone||('g:'+u.uid);
+    if(d&&!(api.profile||{}).isDriver)api.saveProfile({isDriver:true,name:d.name}).catch(()=>{});}
+  else{me=null;reqPhone=null;}
+  resetListeners();applyLiveGates();enterBoard();renderReqMine();renderAccount();renderBell();
+  if(api.isAdmin)startDash();else stopDash();
 }
 
 /* ===== עריכת נסיעה (ניהול) ===== */
@@ -1392,13 +1506,13 @@ function notifyNewRide(r){
 /* ההתראות לפי המסך: נהג בלוח, מבקש בעמוד הנסיעות, מנהל בניהול. בבית: הכל. */
 function myTargets(){const v=(location.hash||'#home').slice(1),t=[];
   if(me&&(v==='drive'||v==='home'||v==='community'))t.push('drv:'+me.id);
-  if(reqPhone&&(v==='need'||v==='home'))t.push('req:'+cleanPhone(reqPhone));
+  if(reqPhone&&(v==='need'||v==='home'))t.push(myReqKey());
   if(adminOn&&(v==='admin'||v==='home'))t.push('admin');return t;}
 function virtualNotifs(){
   const out=[];const tmr=addDays(1);
   const T=myTargets();
   if(me&&T.includes('drv:'+me.id))for(const it of myItems())if(it.date===tmr)out.push({virt:true,text:`תזכורת: מחר ב-${it.r.time} נסיעה מ${it.r.fromCity} ל${it.r.toCity}`,link:'#drive'});
-  if(reqPhone&&T.includes('req:'+cleanPhone(reqPhone)))for(const r of requests)if(cleanPhone(r.phone)===cleanPhone(reqPhone)&&r.status!=='cancelled')for(const d of occDates(r,2))if(!driverFor(r,d)&&hoursUntil(d,r.time)<=24&&hoursUntil(d,r.time)>0)out.push({virt:true,text:`לנסיעה ${fmtDate(d)} ב-${r.time} מ${r.fromCity} עדיין אין נהג. הצוות שלנו מטפל.`,link:'#need'});
+  if(reqPhone&&T.includes(myReqKey()))for(const r of requests)if(isMine(r)&&r.status!=='cancelled')for(const d of occDates(r,2))if(!driverFor(r,d)&&hoursUntil(d,r.time)<=24&&hoursUntil(d,r.time)>0)out.push({virt:true,text:`לנסיעה ${fmtDate(d)} ב-${r.time} מ${r.fromCity} עדיין אין נהג. הצוות שלנו מטפל.`,link:'#need'});
   if(adminOn&&T.includes('admin')){const u=urgentRides().length;if(u)out.push({virt:true,text:`${u===1?'נסיעה אחת':u+' נסיעות'} ב-24 השעות הקרובות בלי נהג`,link:'#admin'});}
   return out;
 }
@@ -1450,7 +1564,7 @@ async function doRelease(kind,id,date,reason){
   if(kind==='cover'){const c={...r.covers};delete c[date];await api.update('requests',id,{covers:c});}
   else await api.update('requests',id,RELEASE);
   if(reason&&me){await api.update('drivers',me.id,{lateCancels:[...(me.lateCancels||[]),{at:Date.now(),rideId:id,reason}]});
-    notify('req:'+cleanPhone(r.phone),`${me.name} ביטל/ה את הנסיעה ${fmtDate(date)} (${reason}). הנסיעה חזרה ללוח ונעדכן כשיימצא נהג.`,'#need');
+    notify(rk(r),`${me.name} ביטל/ה את הנסיעה ${fmtDate(date)} (${reason}). הנסיעה חזרה ללוח ונעדכן כשיימצא נהג.`,'#need');
     notify('admin',`ביטול מאוחר: ${me.name}, ${r.fromCity} ← ${r.toCity} ${fmtDate(date)}. סיבה: ${reason}`,'#admin');}
   toast('הנסיעה חזרה ללוח');
 }
@@ -1479,17 +1593,17 @@ document.addEventListener('click',async e=>{
       if(!armed(el,'לאשר? לחצו שוב'))return;el.disabled=true;
       try{await api.claim(id,d=>d.status==='open',()=>({status:'taken',...meInfo(),takenAt:Date.now()}));}
       catch(x){toast('מישהו/י כבר לקח/ה את הנסיעה הזו ');return;}
-      {const r=reqById(id);notify('req:'+cleanPhone(r.phone),`${me.name} לקח/ה את הנסיעה מ${r.fromCity} ל${r.toCity}${r.schedule==='weekly'?' באופן קבוע':''}. יתקשר/תתקשר לתיאום.`,'#need');}
+      {const r=reqById(id);notify(rk(r),`${me.name} לקח/ה את הנסיעה מ${r.fromCity} ל${r.toCity}${r.schedule==='weekly'?' באופן קבוע':''}. יתקשר/תתקשר לתיאום.`,'#need');}
       toast('הנסיעה שלך! עכשיו להתקשר לתיאום');goMine();break;}
     case 'claimOnce':{
       if(!isVerified()){toast('צריך להשלים אימות לפני שלוקחים נסיעה');return;}
       if(!armed(el,'לאשר? לחצו שוב'))return;el.disabled=true;
       try{await api.claim(id,d=>d.status==='open'&&!(d.covers||{})[date],d=>({covers:{...(d.covers||{}),[date]:{...meInfo(),at:Date.now()}}}));}
       catch(x){toast('מישהו/י כבר לקח/ה את המועד הזה ');return;}
-      {const r=reqById(id);notify('req:'+cleanPhone(r.phone),`${me.name} לקח/ה את הנסיעה ${fmtDate(date)} מ${r.fromCity} ל${r.toCity}.`,'#need');}
+      {const r=reqById(id);notify(rk(r),`${me.name} לקח/ה את הנסיעה ${fmtDate(date)} מ${r.fromCity} ל${r.toCity}.`,'#need');}
       toast(`לקחת את ${fmtDate(date)}. תודה! `);goMine();break;}
-    case 'done':{const r=reqById(id);await api.update('requests',id,{status:'done',doneAt:Date.now(),confirmed:null});notify('req:'+cleanPhone(r.phone),`${me?.name||'הנהג/ת'} סימן/ה שהנסיעה מ${r.fromCity} בוצעה. נשמח שתאשרו.`,'#need');askFeedback(id,'','driver');break;}
-    case 'coverDone':{const r=reqById(id);await api.update('requests',id,{covers:{...r.covers,[date]:{...r.covers[date],done:true,confirmed:null}}});notify('req:'+cleanPhone(r.phone),`${me?.name||'הנהג/ת'} סימן/ה שהנסיעה ${fmtDate(date)} בוצעה. נשמח שתאשרו.`,'#need');askFeedback(id,date,'driver');break;}
+    case 'done':{const r=reqById(id);await api.update('requests',id,{status:'done',doneAt:Date.now(),confirmed:null});notify(rk(r),`${me?.name||'הנהג/ת'} סימן/ה שהנסיעה מ${r.fromCity} בוצעה. נשמח שתאשרו.`,'#need');askFeedback(id,'','driver');break;}
+    case 'coverDone':{const r=reqById(id);await api.update('requests',id,{covers:{...r.covers,[date]:{...r.covers[date],done:true,confirmed:null}}});notify(rk(r),`${me?.name||'הנהג/ת'} סימן/ה שהנסיעה ${fmtDate(date)} בוצעה. נשמח שתאשרו.`,'#need');askFeedback(id,date,'driver');break;}
     case 'release':{
       if(adminOn&&location.hash==='#admin'){if(!armed(el,'לשחרר? לחצו שוב'))return;await api.update('requests',id,RELEASE);toast('הנהג שוחרר והנסיעה חזרה ללוח');break;}
       const r=reqById(id);const d=date||occDates(r,1)[0]||r.date;
@@ -1543,14 +1657,14 @@ document.addEventListener('click',async e=>{
     case 'ezNeedsNext':ezAfterNeeds();break;
     case 'ezWho':{const n=$('#ezName').value.trim(),ph=$('#ezPhone').value.trim(),err=$('#ezErr');
       if(!n)return err.textContent='נא לכתוב שם.';if(!validPhone(ph))return err.textContent='מספר הטלפון לא תקין.';
-      const known=pvts.find(x=>x.id===cleanPhone(ph));
+      const known=myPvt(ph);
       if(!(known&&known.status==='approved')&&$('#ezTz')){const tz=$('#ezTz').value.replace(/\D/g,'');if(!validTz(tz))return err.textContent='מספר תעודת הזהות לא תקין.';if(!$('#ezElig').value)return err.textContent='נא לבחור למה צריך הסעה.';if(!$('#ezDecl').checked)return err.textContent='נא לאשר את ההצהרה.';ez.tz=tz;ez.elig=$('#ezElig').value;}
       ezProf.contactName=n;ezProf.phone=ph;ezProf.kind=ezProf.kind||'private';saveEzProf();ezGo('confirm');break;}
     case 'ezFix':ezGo('when');break;
     case 'ezPublish':el.disabled=true;await ezPublish();el.disabled=false;break;
     case 'stage':{const r=reqById(id),s=el.dataset.s,k=el.dataset.k;await api.update('requests',id,{stages:{...(r.stages||{}),[date]:s}});
       const T={onway:'יצא/ה לדרך לאיסוף',riding:'אסף/ה את הנוסע/ת ובדרך ליעד',arrived:'הגיע/ה ליעד'};
-      notify('req:'+cleanPhone(r.phone),`${me?.name||'הנהג/ת'} ${T[s]} (${r.fromCity} ← ${r.toCity}).`,'#need');
+      notify(rk(r),`${me?.name||'הנהג/ת'} ${T[s]} (${r.fromCity} ← ${r.toCity}).`,'#need');
       if(s==='arrived'){if(k==='cover'){const r2=reqById(id);await api.update('requests',id,{covers:{...r2.covers,[date]:{...r2.covers[date],done:true,confirmed:null}}});askFeedback(id,date,'driver');}
         else if(k!=='series'){await api.update('requests',id,{status:'done',doneAt:Date.now(),confirmed:null});askFeedback(id,'','driver');}
         else toast('תודה רבה! הנסיעה של היום הסתיימה');}
@@ -1561,7 +1675,7 @@ document.addEventListener('click',async e=>{
       if(r.schedule==='weekly'||!el.dataset.date||el.dataset.date===r.date)await api.update('requests',id,{status:'taken',...info,takenAt:Date.now()});
       else await api.update('requests',id,{covers:{...(r.covers||{}),[el.dataset.date]:{...info,at:Date.now()}}});
       notify('drv:'+d.id,`המוקד שיבץ אותך לנסיעה ${r.fromCity} ← ${r.toCity}, ${whenText(r)}.`,'#drive');
-      notify('req:'+cleanPhone(r.phone),`${d.name} שובץ/ה לנסיעה מ${r.fromCity} ל${r.toCity}.`,'#need');
+      notify(rk(r),`${d.name} שובץ/ה לנסיעה מ${r.fromCity} ל${r.toCity}.`,'#need');
       closeDlg();toast(`${d.name} שובץ/ה`);break;}
     case 'callbackDlg':callbackDlg();break;
     case 'a11y':a11yDlg();break;
@@ -1570,13 +1684,14 @@ document.addEventListener('click',async e=>{
     case 'toggleDrvLogin':{const b=$('#dLoginBox');b.hidden=!b.hidden;if(!b.hidden)$('#dLoginPhone').focus();break;}
     case 'pfilter':pFilter=el.dataset.f;renderPvts();break;
     case 'pvtSet':{const s=el.dataset.s;if(s==='blocked'&&!armed(el,'לחסום? לחצו שוב'))return;await api.update('pvts',id,{status:s,decidedAt:Date.now()});
-      const rs=requests.filter(r=>cleanPhone(r.phone)===id&&r.status!=='cancelled');
+      const rs=requests.filter(r=>ownerKey(r)===id&&r.status!=='cancelled');
       for(const r of rs){if(s==='approved'&&r.privPending)await api.update('requests',r.id,{privPending:false});if(s==='blocked'&&r.status==='open')await api.update('requests',r.id,{privPending:true});}
       if(s==='approved'){notify('req:'+id,'אומתת ע״י צוות נוסעים ביחד. הנסיעות שלך פורסמו לנהגים.','#need');const r0=rs[0];if(r0)notifyNewRide(r0);}
       toast(s==='approved'?'אומת/ה, והנסיעות פורסמו ✓':s==='blocked'?'נחסם/ה':'עודכן');break;}
     case 'ofilter':oFilter=el.dataset.f;renderOrgs();break;
     case 'orgCheck':{const o=orgs.find(x=>x.id===id);await api.update('orgs',id,{checks:{...(o.checks||{}),[el.dataset.k]:el.checked}});break;}
-    case 'orgSet':{const s=el.dataset.s;if(s==='rejected'&&!armed(el,'לדחות? לחצו שוב'))return;await api.update('orgs',id,{status:s,decidedAt:Date.now()});toast(s==='approved'?'הארגון אושר ✓':s==='contacted'?'סומן: בתהליך':s==='rejected'?'הבקשה נדחתה':'עודכן');break;}
+    case 'orgSet':{const s=el.dataset.s;if(s==='rejected'&&!armed(el,'לדחות? לחצו שוב'))return;await api.update('orgs',id,{status:s,decidedAt:Date.now()});
+      {const o=orgs.find(x=>x.id===id);if(LIVE&&o?.ownerUid)await api.setMerge('users',o.ownerUid,{orgApproved:s==='approved',orgName:o.name});}toast(s==='approved'?'הארגון אושר ✓':s==='contacted'?'סומן: בתהליך':s==='rejected'?'הבקשה נדחתה':'עודכן');break;}
     case 'cmDriver':cmDriverDlg(id);break;
     case 'cmOrg':cmOrgDlg(el.dataset.org);break;
     case 'cmDrivers':cmListDlg('drivers');break;
@@ -1589,7 +1704,9 @@ document.addEventListener('click',async e=>{
     case 'goDrvLogin':closeDlg();location.hash='#drive';setTimeout(()=>{$('#dLoginBox').hidden=false;$('#dLoginPhone').focus();},60);break;
     case 'goPostPrivate':closeDlg();location.hash='#need';setTabs('ntab','post',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});setTimeout(()=>{const x=document.querySelector('#needForm input[name=kind][value=private]');if(x){x.checked=true;syncNeedForm();}},30);break;
     case 'goReqMine':closeDlg();location.hash='#need';setTabs('ntab','mine',{easy:'#nEasy',post:'#nPost',mine:'#nMine'});renderReqMine();break;
-    case 'acctOut':if(el.dataset.who==='drv'){me=null;lsSet(ME_KEY,null);enterBoard();}else{reqPhone=null;lsSet(REQ_KEY,null);renderReqMine();}closeDlg();renderAccount();renderBell();toast('יצאת מהחשבון');break;
+    case 'gSignIn':try{await api.signIn();closeDlg();}catch(x){console.error(x);toast('הכניסה נכשלה. נסו שוב');}break;
+    case 'gSignOut':closeDlg();await api.logout();toast('יצאת מהחשבון');break;
+    case 'acctOut':if(LIVE){closeDlg();await api.logout();toast('יצאת מהחשבון');break;}if(el.dataset.who==='drv'){me=null;lsSet(ME_KEY,null);enterBoard();}else{reqPhone=null;lsSet(REQ_KEY,null);renderReqMine();}closeDlg();renderAccount();renderBell();toast('יצאת מהחשבון');break;
     case 'install':if(installEvt){installEvt.prompt();installEvt=null;closeDlg();}break;
     case 'bellClose':$('#bellPanel').hidden=true;break;
     case 'bellRead':{for(const n of notifs.filter(n=>myTargets().includes(n.to)&&!n.read))await api.update('notifs',n.id,{read:true});break;}
@@ -1679,4 +1796,4 @@ window.addEventListener('hashchange',()=>{closeDlg();route();renderBell();render
 if(DEMO){$('#demoBanner').hidden=false;document.querySelectorAll('[data-demo]').forEach(el=>el.hidden=false);$('#loginHint').textContent='גרסת הדגמה: לחצו "כניסה" גם בלי פרטים.';}
 try{api=DEMO?demoApi():await firebaseApi();}catch(x){console.error(x);toast('החיבור לשרת נכשל');api=demoApi();}
 enterBoard();renderReqMine();renderShabbat();renderBell();renderAccount();renderEasy();renderHomeLive();setInterval(()=>{renderShabbat();renderBell();},60000);
-api.onAuth(u=>{u?startDash():stopDash();});
+if(LIVE){api.onAuth(onLiveAuth);applyLiveGates();}else api.onAuth(u=>{u?startDash():stopDash();});
