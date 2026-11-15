@@ -25,6 +25,7 @@ module.exports = async (req, res) => {
     if (r.driverId === uid) Object.assign(upd, { driverName: 'נהג/ת שמחק/ה חשבון', driverPhone: '', driverCar: '' });
     ops.push(d.ref.update(upd));
   });
+  ops.push(admin.storage().bucket('nosim-beyachad.firebasestorage.app').deleteFiles({ prefix: 'driverDocs/' + uid + '/' }).catch(() => {}));
   await Promise.all(ops);
   await db.collection('notifs').add({ to: 'admin', text: 'משתמש/ת מחק/ה את החשבון והמידע האישי נמחק.', link: '#admin', at: Date.now(), read: false });
   await admin.auth().deleteUser(uid);

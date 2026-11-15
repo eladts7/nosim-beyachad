@@ -248,8 +248,8 @@ const DRV_PRIV=['phone','emergencyName','emergencyPhone'];
 const ADMIN_EMAILS=['eladts7@gmail.com'];
 async function firebaseApi(){
   const base='https://www.gstatic.com/firebasejs/10.12.2/';
-  const [{initializeApp},fs,au]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js')]);
-  const app=initializeApp(firebaseConfig),db=fs.getFirestore(app),auth=au.getAuth(app);
+  const [{initializeApp},fs,au,st]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js'),import(base+'firebase-storage.js')]);
+  const app=initializeApp(firebaseConfig),db=fs.getFirestore(app),auth=au.getAuth(app),storage=st.getStorage(app);
   const D=(c,id)=>fs.doc(db,c,id),C=c=>fs.collection(db,c);
   const split=(o,keys)=>{const a={},b={};for(const [k,v] of Object.entries(o||{}))(keys.includes(k)?b:a)[k]=v;return [a,b];};
   const driverIdsOf=r=>[...new Set([r.driverId,...Object.values(r.covers||{}).map(c=>c&&c.driverId)].filter(Boolean))];
@@ -331,7 +331,13 @@ async function firebaseApi(){
       const u1=fs.onSnapshot(D('drivers',id),s=>{a=s.exists()?{id:s.id,...s.data()}:null;emit();},e=>console.warn(e));
       const u2=fs.onSnapshot(D('driverPriv',id),s=>{b=s.exists()?s.data():{};emit();},e=>console.warn(e));
       return ()=>{u1();u2();};},
-    uploadDoc:async(driverId,key,file)=>({name:file.name,size:file.size,type:file.type.startsWith('image/')?'image/jpeg':file.type,url:await shrinkFile(file)}),
+    uploadDoc:async(driverId,key,file)=>{const isImg=file.type.startsWith('image/');
+      if(!isImg&&file.type!=='application/pdf')throw new Error('אפשר להעלות תמונה או PDF בלבד');
+      let blob=file,type=file.type;if(isImg){const d=await shrinkFile(file);if(d){blob=await (await fetch(d)).blob();type='image/jpeg';}}
+      if(blob.size>10*1024*1024)throw new Error('הקובץ גדול מ-10MB. אפשר לצלם את המסמך במקום');
+      const ref=st.ref(storage,`driverDocs/${user.uid}/${key}-${Date.now()}.${type==='application/pdf'?'pdf':'jpg'}`);
+      await st.uploadBytes(ref,blob,{contentType:type});
+      return {name:file.name,size:blob.size,type,url:await st.getDownloadURL(ref)};},
     reset:()=>{},login:async()=>api.signIn()
   };
   return api;
@@ -578,10 +584,10 @@ function renderVerify(){
 }
 async function onDocFile(input){
   const k=input.dataset.doc,f=input.files[0];if(!f)return;
-  if(f.size>8e6){toast('הקובץ גדול מדי (עד 8MB)');input.value='';return;}
+  if(f.size>(f.type.startsWith('image/')?25e6:10e6)){toast('הקובץ גדול מדי. אפשר לצלם את המסמך במקום');input.value='';return;}
   const head=input.closest('.doc').querySelector('.doc-head span');head.className='hint';head.textContent='מעלה…';
   try{const up=await api.uploadDoc(me.id,k,f);vDraft[k]={...(vDraft[k]||{}),...up};head.className='file-ok';head.textContent='✓ הועלה: '+f.name;}
-  catch(x){console.error(x);head.className='err';head.textContent='ההעלאה נכשלה, נסו שוב';}
+  catch(x){console.error(x);head.className='err';head.textContent=(x&&/[א-ת]/.test(x.message||'')?x.message:'ההעלאה נכשלה. נסו שוב, או צלמו את המסמך במקום');}
 }
 async function submitVerify(){
   const err=$('#vErr');err.textContent='';
