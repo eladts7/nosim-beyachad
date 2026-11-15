@@ -248,8 +248,10 @@ const DRV_PRIV=['phone','emergencyName','emergencyPhone'];
 const ADMIN_EMAILS=['eladts7@gmail.com'];
 async function firebaseApi(){
   const base='https://www.gstatic.com/firebasejs/10.12.2/';
-  const [{initializeApp},fs,au,st]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js'),import(base+'firebase-storage.js')]);
-  const app=initializeApp(firebaseConfig),db=fs.getFirestore(app),auth=au.getAuth(app),storage=st.getStorage(app);
+  const [{initializeApp},fs,au,st,ac]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js'),import(base+'firebase-storage.js'),import(base+'firebase-app-check.js')]);
+  const app=initializeApp(firebaseConfig);
+  try{ac.initializeAppCheck(app,{provider:new ac.ReCaptchaEnterpriseProvider('6LeCJiIuAAAAAA_q9_ltV1I-TZESVDvQu0v9UidJ'),isTokenAutoRefreshEnabled:true});}catch(e){console.warn('app check',e);}
+  const db=fs.getFirestore(app),auth=au.getAuth(app),storage=st.getStorage(app);
   const D=(c,id)=>fs.doc(db,c,id),C=c=>fs.collection(db,c);
   const split=(o,keys)=>{const a={},b={};for(const [k,v] of Object.entries(o||{}))(keys.includes(k)?b:a)[k]=v;return [a,b];};
   const driverIdsOf=r=>[...new Set([r.driverId,...Object.values(r.covers||{}).map(c=>c&&c.driverId)].filter(Boolean))];
