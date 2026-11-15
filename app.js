@@ -250,7 +250,8 @@ async function firebaseApi(){
   const base='https://www.gstatic.com/firebasejs/10.12.2/';
   const [{initializeApp},fs,au,st,ac]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js'),import(base+'firebase-storage.js'),import(base+'firebase-app-check.js')]);
   const app=initializeApp(firebaseConfig);
-  try{ac.initializeAppCheck(app,{provider:new ac.ReCaptchaEnterpriseProvider('6LeCJiIuAAAAAA_q9_ltV1I-TZESVDvQu0v9UidJ'),isTokenAutoRefreshEnabled:true});}catch(e){console.warn('app check',e);}
+  let appCheck=null;
+  try{appCheck=ac.initializeAppCheck(app,{provider:new ac.ReCaptchaEnterpriseProvider('6LeCJiIuAAAAAA_q9_ltV1I-TZESVDvQu0v9UidJ'),isTokenAutoRefreshEnabled:true});}catch(e){console.warn('app check',e);}
   const db=fs.getFirestore(app),auth=au.getAuth(app),storage=st.getStorage(app);
   const D=(c,id)=>fs.doc(db,c,id),C=c=>fs.collection(db,c);
   const split=(o,keys)=>{const a={},b={};for(const [k,v] of Object.entries(o||{}))(keys.includes(k)?b:a)[k]=v;return [a,b];};
@@ -271,7 +272,8 @@ async function firebaseApi(){
         try{const s=await fs.getDoc(D('users',u.uid));profile=s.exists()?s.data():{};}catch(e){console.error(e);}}
       f(u);});},
     async idToken(){return user?await user.getIdToken():'';},
-    async server(path,body){const t=await this.idToken();const res=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify(body||{})});
+    async server(path,body){const t=await this.idToken();let act='';try{if(appCheck)act=(await ac.getToken(appCheck,false)).token;}catch(e){}
+      const res=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t,'X-Firebase-AppCheck':act},body:JSON.stringify(body||{})});
       let j={};try{j=await res.json();}catch(e){}if(!res.ok||j.ok===false)throw new Error(j.error||('שגיאה '+res.status));return j;},
     async listAdmins(){const s=await fs.getDocs(C('admins'));return s.docs.map(d=>({id:d.id,...d.data()}));},
     async addAdmin(e){e=String(e||'').trim().toLowerCase();await fs.setDoc(D('admins',e),{addedBy:user.email||'',at:Date.now()});},

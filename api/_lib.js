@@ -11,7 +11,15 @@ function init() {
   return true;
 }
 
+// App Check: records whether the request came from our real app. Set APPCHECK_ENFORCE=1 to reject requests without it.
+async function appCheckOk(req) {
+  const t = req.headers['x-firebase-appcheck'];
+  if (!t) return false;
+  try { await admin.appCheck().verifyToken(t); return true; } catch (e) { return false; }
+}
+
 async function caller(req) {
+  if (process.env.APPCHECK_ENFORCE === '1' && !(await appCheckOk(req))) { const e = new Error('app check'); e.code = 'appcheck'; throw e; }
   const token = (req.headers.authorization || '').replace(/^Bearer /, '');
   const u = await admin.auth().verifyIdToken(token);
   const email = String(u.email || '').toLowerCase();
@@ -67,4 +75,4 @@ async function push(to, text, link) {
 
 function israelMonth() { return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jerusalem' }).slice(0, 7); }
 
-module.exports = { admin, init, caller, rateLimit, push, israelMonth };
+module.exports = { admin, init, appCheckOk, caller, rateLimit, push, israelMonth };
