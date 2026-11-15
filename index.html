@@ -124,6 +124,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
 .narrow{max-width:420px;margin:30px auto}
 .err{color:var(--danger);font-size:14px;min-height:20px}
 .me{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.amb-note{background:#fff1f0;border:1px solid #f3c2bd;color:#7a271a;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.55}
+.tag.delivery{background:#eef4ff;color:#1d4ed8;font-weight:700}
 .push-note{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--brand-soft);border:1px solid var(--brand);border-radius:12px;padding:12px 14px;margin:10px 0 4px;font-size:15px}
 .push-note b{display:block}
 .inst{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;background:var(--ink);color:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 10px 30px rgba(16,24,40,.25);display:flex;gap:12px;align-items:center;max-width:520px;margin:0 auto}
@@ -531,6 +533,16 @@ html.a-still *{animation:none!important;transition:none!important;scroll-behavio
           <div class="field full" data-org><span class="lbl">מי יכול לקחת את הנסיעה?</span>
             <div class="seg"><label><input type="radio" name="access" value="all" checked>כל נהג שאומת ע״י נוסעים ביחד</label><label><input type="radio" name="access" value="approved">רק נהגים שהעמותה שלנו אישרה</label></div></div>
         </div>
+        <h3>מה צריך?</h3>
+        <div class="field full"><div class="seg">
+          <label><input type="radio" name="rtype" value="ride" checked>הסעה של נוסע/ת</label>
+          <label><input type="radio" name="rtype" value="delivery">שליחות: תרופות, ציוד או מסמכים</label>
+        </div></div>
+        <div class="grid" data-delivery hidden style="margin-top:12px">
+          <div class="field"><label class="lbl req" for="nItem">מה מעבירים?</label><select id="nItem" name="item"><option value="">בחירה…</option><option value="meds">תרופות</option><option value="equipment">ציוד רפואי</option><option value="docs">מסמכים רפואיים</option><option value="food">אוכל לחולה או למשפחה</option><option value="other">אחר</option></select></div>
+          <div class="field"><label class="lbl" for="nSize">גודל</label><select id="nSize" name="itemSize"><option value="small">קטן, נכנס לתיק</option><option value="medium">בינוני, צריך מושב או תא מטען</option><option value="large">גדול, צריך רכב מרווח</option></select></div>
+          <div class="field full"><p class="note" style="margin:0">שליחות קטנה מתאימה גם לנהגים על אופנוע. פרטים מזהים (שם, כתובת מדויקת, מה בדיוק) כותבים בהערות, והם עוברים רק לנהג/ת שלקח/ה את השליחות.</p></div>
+        </div>
         <h3>מסלול</h3>
         <div class="grid">
           <div class="field"><label class="lbl req" for="nFromCity">עיר מוצא</label><input id="nFromCity" name="fromCity" type="text" maxlength="40"></div>
@@ -548,12 +560,13 @@ html.a-still *{animation:none!important;transition:none!important;scroll-behavio
           <div class="field" data-once><label class="lbl req" for="nDate">תאריך</label><input id="nDate" name="date" type="date"></div>
           <div class="field full" data-weekly hidden><span class="lbl req">באילו ימים</span><div class="checks" id="nDays"></div></div>
           <div class="field"><label class="lbl req" for="nTime">שעת איסוף</label><input id="nTime" name="time" type="time"></div>
+          <div class="field"><label class="lbl" for="nTimeTo">אפשר לאסוף עד שעה (לא חובה)</label><input id="nTimeTo" name="timeTo" type="time"><span class="hint">טווח גמיש מגדיל את הסיכוי שנהג/ת יתפנה.</span></div>
           <div class="field" data-weekly hidden><label class="lbl" for="nUntil">עד תאריך (לא חובה)</label><input id="nUntil" name="until" type="date"></div>
-          <div class="field"><label class="lbl" for="nCount">מספר נוסעים</label><input id="nCount" name="passengers" type="number" min="1" max="8" value="1"></div>
-          <div class="field"><label class="lbl" for="nPurpose">מטרת הנסיעה</label><select id="nPurpose" name="purpose"><option value="">בחירה…</option><option value="medical">טיפול רפואי</option><option value="checkup">בדיקה או ביקור רופא</option><option value="regular">טיפול קבוע (דיאליזה, הקרנות, פיזיותרפיה)</option><option value="rehab">טיפול רגשי או שיקומי</option><option value="family">ביקור משפחתי</option><option value="other">אחר</option></select></div>
+          <div class="field" data-ride><label class="lbl" for="nCount">מספר נוסעים</label><input id="nCount" name="passengers" type="number" min="1" max="8" value="1"></div>
+          <div class="field" data-ride><label class="lbl" for="nPurpose">מטרת הנסיעה</label><select id="nPurpose" name="purpose"><option value="">בחירה…</option><option value="medical">טיפול רפואי</option><option value="checkup">בדיקה או ביקור רופא</option><option value="regular">טיפול קבוע (דיאליזה, הקרנות, פיזיותרפיה)</option><option value="rehab">טיפול רגשי או שיקומי</option><option value="family">ביקור משפחתי</option><option value="other">אחר</option></select></div>
         </div>
-        <h3>מה חשוב שהנהג/ת ידע/תדע</h3>
-        <div class="checks" id="nNeeds">
+        <h3 data-ride>מה חשוב שהנהג/ת ידע/תדע</h3>
+        <div class="checks" id="nNeeds" data-ride>
         </div>
         <div class="grid" id="retWrap" hidden style="margin-top:12px"><div class="field"><label class="lbl req" for="nRetTime">שעת איסוף לחזור</label><input id="nRetTime" name="returnTime" type="time"><span class="hint">ייפתח כנסיעה נפרדת ומקושרת, כך שגם נהג אחר יכול לקחת אותה.</span></div></div>
         <div class="cog" id="cogPanel" hidden>
@@ -569,6 +582,7 @@ html.a-still *{animation:none!important;transition:none!important;scroll-behavio
           </div>
         </div>
         <div class="field full" style="margin-top:14px"><label class="lbl" for="nNotes">הערות לנהג</label><textarea id="nNotes" name="notes" maxlength="400" placeholder="בלי פרטים מזהים. למשל: הנוסע לא מדבר, אוהב מוזיקה שקטה, צריך עזרה לעלות לרכב"></textarea></div>
+        <div data-ride style="margin-top:14px"><div class="amb-note"><b>חשוב:</b> נוסעים ביחד אינו שירות אמבולנס. הנהגים מתנדבים בלי הכשרה רפואית. אם נאמר לנוסע/ת לנסוע באמבולנס, או שמצבו/ה דורש ליווי רפואי, יש להזמין אמבולנס.</div></div>
         <div class="checks" style="margin-top:14px"><label style="border-radius:12px;align-items:flex-start"><input type="checkbox" name="terms" value="1" style="margin-top:5px"><span>קראתי ואני מסכים/ה ל<a href="#terms">תנאי השימוש ולמדיניות הפרטיות</a>, ויש לי הסכמה של הנוסע/ת (או של האפוטרופוס) לשתף את פרטי הנסיעה עם נהג מתנדב.</span></label></div>
         <p class="err" id="needErr"></p>
         <div class="actions"><button class="btn accent" type="submit">פרסום הנסיעה</button></div>
@@ -698,6 +712,8 @@ html.a-still *{animation:none!important;transition:none!important;scroll-behavio
     <p>כדי שההתנדבות תגיע למי שבאמת צריך, מבקש פרטי עובר אימות קצר בפעם הראשונה: תעודת זהות (נשמרות רק 4 ספרות), סיבת הצורך והצהרה. יש מכסה חודשית של נסיעות, ומי שמנצל את השירות לרעה ייחסם.</p>
     <h3>גם הנהגים מדווחים</h3>
     <p>נהג יכול לדווח לצוות על יחס לא ראוי, על פרטים לא מדויקים בבקשה או על המתנה ארוכה. גם מבקשים שחוזרים על בעיות ייבדקו.</p>
+    <h3>לא שירות אמבולנס</h3>
+    <p>הנסיעות ניתנות על ידי נהגים מתנדבים ברכבים פרטיים ובמוניות, בלי הכשרה מקצועית בהסעת חולים. השירות אינו מחליף אמבולנס או הסעה רפואית. מי שהונחה לנסוע באמבולנס, או שמצבו דורש ליווי או ציוד רפואי בדרך, צריך להזמין אמבולנס. במקרה חירום מתקשרים ל-101.</p>
     <h3>אחריות</h3>
     <p>[לנסח עם עורך דין: אחריות, ביטוח, תאונות ואירועים חריגים]</p>
     <div class="actions"><a class="btn ghost" href="#home">חזרה</a></div>

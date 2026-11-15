@@ -124,9 +124,13 @@ const coverOf=(r,date)=>(r.covers||{})[date];
 function nextOpenOcc(r){ if(r.status!=='open') return null; return occDates(r,8).find(d=>!coverOf(r,d))||null; }
 /* מי נוהג במועד מסוים */
 function driverFor(r,date){ const c=coverOf(r,date); if(c) return {...c,cover:true}; if(r.status==='taken'&&r.driverId) return {driverId:r.driverId,driverName:r.driverName,driverPhone:r.driverPhone,driverCar:r.driverCar}; return null; }
+const ITEMS={meds:'תרופות',equipment:'ציוד רפואי',docs:'מסמכים רפואיים',food:'אוכל',other:'שליחות'};
+const isDlv=r=>r?.rtype==='delivery';
+const rideWord=r=>isDlv(r)?'השליחות':'הנסיעה';
+const tw=r=>r.timeTo?`${r.time}–${r.timeTo}`:r.time;
 function whenText(r){
-  if(r.schedule==='weekly') return `כל שבוע · ${(r.days||[]).map(i=>DAYS[i]+'׳').join(', ')} · ${esc(r.time)}`;
-  return `${fmtDate(r.date)} · ${esc(r.time)}`;
+  if(r.schedule==='weekly') return `כל שבוע · ${(r.days||[]).map(i=>DAYS[i]+'׳').join(', ')} · ${esc(tw(r))}`;
+  return `${fmtDate(r.date)} · ${esc(tw(r))}`;
 }
 const isExpired=r=>r.schedule==='weekly'?!!(r.until&&r.until<todayStr()):(r.date<todayStr());
 const who=r=>r.kind==='org'?r.orgName:'אדם פרטי';
@@ -354,9 +358,11 @@ function syncNeedForm(){
   f.querySelectorAll('[data-private]').forEach(el=>el.hidden=kind!=='private'||adminAdding);
   f.querySelectorAll('[data-once]').forEach(el=>el.hidden=sched!=='once');
   f.querySelectorAll('[data-weekly]').forEach(el=>el.hidden=sched!=='weekly');
+  const dlv=f.rtype.value==='delivery';f.querySelectorAll('[data-delivery]').forEach(el=>el.hidden=!dlv);f.querySelectorAll('[data-ride]').forEach(el=>el.hidden=dlv);
+  $('#nFromPlace').placeholder=dlv?'למשל: בית מרקחת, מחלקה בבית החולים':'למשל: דיור בקהילה, שכונת…';$('#nToPlace').placeholder=dlv?'למשל: בית החולה, מחלקה':'למשל: בית ההורים, בית חולים…';
   const needs=[...f.querySelectorAll('input[name=needs]:checked')].map(x=>x.value);
-  $('#cogPanel').hidden=!NEEDS.some(n=>n.cog&&needs.includes(n.k));
-  $('#retWrap').hidden=!needs.includes('returnTrip');
+  $('#cogPanel').hidden=dlv||!NEEDS.some(n=>n.cog&&needs.includes(n.k));
+  $('#retWrap').hidden=dlv||!needs.includes('returnTrip');
 }
 function needDefaults(){$('#nDate').value=addDays(1);$('#nDate').min=todayStr();$('#nUntil').min=todayStr();syncNeedForm();}
 async function submitNeed(e){
@@ -365,7 +371,8 @@ async function submitNeed(e){
   const s=k=>String(fd.get(k)||'').trim();
   const r={kind:s('kind'),orgName:s('orgName'),contactName:s('contactName'),phone:cleanPhone(s('phone')),
     fromCity:s('fromCity'),fromPlace:s('fromPlace'),toCity:s('toCity'),toPlace:s('toPlace'),
-    schedule:s('schedule'),date:s('date'),days:fd.getAll('days'),until:s('until'),time:s('time'),
+    schedule:s('schedule'),date:s('date'),days:fd.getAll('days'),until:s('until'),time:s('time'),timeTo:s('timeTo'),
+    rtype:s('rtype')||'ride',item:s('rtype')==='delivery'?s('item'):'',itemSize:s('rtype')==='delivery'?s('itemSize'):'',
     passengers:Math.max(1,parseInt(fd.get('passengers'),10)||1),
     needs:fd.getAll('needs'),purpose:s('purpose'),access:s('kind')==='org'?(s('access')||'all'):'all',
     notes:s('notes'),status:'open',driverId:null,covers:{},createdAt:Date.now()};
@@ -375,6 +382,8 @@ async function submitNeed(e){
   if(!validPhone(r.phone)) return err.textContent='מספר הטלפון לא תקין.';
   if(!r.fromCity||!r.toCity) return err.textContent='נא למלא עיר מוצא ועיר יעד.';
   if(!r.time) return err.textContent='נא לבחור שעת איסוף.';
+  if(r.timeTo&&r.timeTo<=r.time) return err.textContent='שעת "עד" צריכה להיות אחרי שעת האיסוף.';
+  if(r.rtype==='delivery'){if(!r.item)return err.textContent='נא לבחור מה מעבירים.';r.passengers=0;r.needs=[];r.purpose='';}
   if(r.needs.includes('returnTrip')&&!retTime) return err.textContent='נא לבחור שעת איסוף לחזור.';
   if(r.needs.includes('returnTrip')&&retTime<=r.time) return err.textContent='שעת החזור צריכה להיות אחרי שעת האיסוף.';
   if(LIVE&&!api.uid){gSignInDlg('כדי לפרסם נסיעה נכנסים פעם אחת עם חשבון גוגל.');return err.textContent='צריך להיכנס עם חשבון גוגל.';}
@@ -475,7 +484,7 @@ function renderReqMine(){
     if(r.schedule==='weekly'){
       const occ=occDates(r,4);
       body=`${r.status==='taken'?`<div class="hint" style="margin-top:8px">נהג/ת קבוע/ה:</div>${driverLine(driverFor({...r,covers:{}},''))}`:'<div style="margin-top:8px"><span class="tag seek">מחפשת נהג/ת קבוע/ה</span></div>'}
-        <div class="occ">${occ.map(d=>{const dr=driverFor(r,d);return dr?`<div class="got"><span>${fmtDate(d)} · ${esc(r.time)}</span><span>✓ ${esc(dr.driverName)}${dr.cover?' (חד-פעמי)':''}</span></div>`:`<div class="miss"><span>${fmtDate(d)} · ${esc(r.time)}</span><span>עוד אין נהג/ת</span></div>`;}).join('')}</div>`;
+        <div class="occ">${occ.map(d=>{const dr=driverFor(r,d);return dr?`<div class="got"><span>${fmtDate(d)} · ${esc(tw(r))}</span><span>✓ ${esc(dr.driverName)}${dr.cover?' (חד-פעמי)':''}</span></div>`:`<div class="miss"><span>${fmtDate(d)} · ${esc(r.time)}</span><span>עוד אין נהג/ת</span></div>`;}).join('')}</div>`;
     } else {
       body=r.status==='taken'?driverLine(driverFor(r,r.date)):(coverOf(r,r.date)?driverLine(driverFor(r,r.date)):'<div class="hint" style="margin-top:8px">מחכה לנהג/ת. נעדכן כאן ברגע שמישהו/י לוקח/ת.</div>');
     }
@@ -629,9 +638,9 @@ function myItems(){
   return out.sort((a,b)=>((a.date||'9')+a.r.time).localeCompare((b.date||'9')+b.r.time));
 }
 function needsTags(r){
-  return [r.schedule==='weekly'?'<span class="tag weekly">קבוע</span>':'',r.kind==='org'?`<span class="tag org">${esc(r.orgName)}${orgVerified(r.orgName)?' ✓':''}</span>`:'<span class="tag">אדם פרטי</span>',
+  return [isDlv(r)?`<span class="tag delivery">שליחות · ${ITEMS[r.item]||''}${r.itemSize==='large'?' · גדול':r.itemSize==='small'?' · קטן':''}</span>`:'',r.schedule==='weekly'?'<span class="tag weekly">קבוע</span>':'',r.kind==='org'?`<span class="tag org">${esc(r.orgName)}${orgVerified(r.orgName)?' ✓':''}</span>`:'<span class="tag">אדם פרטי</span>',
     ...NEEDS.filter(n=>hasNeed(r,n.k)).map(n=>`<span class="tag ${n.hot?'need':''}">${n.i} ${n.t}</span>`),
-    `<span class="tag">${r.passengers||1} נוסעים</span>`].join('');
+    isDlv(r)?'':`<span class="tag">${r.passengers||1} נוסעים</span>`].join('');
 }
 function cogNotice(r,full){
   if(!isCog(r))return '';
@@ -660,7 +669,7 @@ function openCard(r){
   else if(wk) btns=`<button class="btn brand" data-act="claimOnce" data-id="${r.id}" data-date="${nd}">רק ב${fmtDate(nd)}</button><button class="btn alt" data-act="claimSeries" data-id="${r.id}">כל שבוע, באופן קבוע</button>`;
   else btns=`<button class="btn brand" data-act="claimSeries" data-id="${r.id}">אני לוקח/ת</button>`;
   return `<article class="item">
-    <div class="item-top"><span class="when">${wk?`${fmtDate(nd)} · ${esc(r.time)}`:whenText(r)}</span>${wk?`<span class="hint">${whenText(r)}</span>`:''}</div>
+    <div class="item-top"><span class="when">${wk?`${fmtDate(nd)} · ${esc(tw(r))}`:whenText(r)}</span>${wk?`<span class="hint">${whenText(r)}</span>`:''}</div>
     ${routeHtml(r)}
     <div class="meta" style="gap:6px">${(me.avDays||[]).length&&fitsAvail(me,nd,r.time)?'<span class="tag fit">מתאים לזמינות שלך</span>':''}${purposeTag(r)}${needsTags(r)}${r.access==='approved'&&r.kind==='org'?'<span class="tag">נהגים מאושרי עמותה</span>':''}${r.isReturn?'<span class="tag">חזור</span>':''}${wk?`<span class="tag seek">מחפשת נהג/ת קבוע/ה${covered?` · ${covered} שבועות קרובים מכוסים`:''}</span>`:''}</div>
     ${r.notes?`<div class="meta" style="margin-top:8px">${esc(r.notes)}</div>`:''}
@@ -672,8 +681,8 @@ const stageOf=(r,d)=>(r.stages||{})[d]||((r.status==='done'||(r.covers||{})[d]?.
 function stageBar(r,d){const s=stageOf(r,d),i=STAGES.findIndex(x=>x[0]===s);
   return `<ol class="stg">${STAGES.map(([k,t],j)=>`<li class="${j<i?'done':j===i?'now':''}">${t}</li>`).join('')}</ol>`;}
 function mineCard({r,kind,date}){
-  const label=kind==='series'?`כל שבוע · הבאה: ${fmtDate(date)} · ${esc(r.time)}`:`${fmtDate(date)} · ${esc(r.time)}`;
-  const msg=`שלום ${r.contactName}, כאן ${me.name}, נהג/ת מתנדב/ת מ"${APP_NAME}". לקחתי את הנסיעה מ${r.fromCity} ל${r.toCity} ${kind==='series'?'(קבועה)':'ב'+fmtDate(date)}, בשעה ${r.time}. אשמח לתאם את הפרטים.`;
+  const label=kind==='series'?`כל שבוע · הבאה: ${fmtDate(date)} · ${esc(tw(r))}`:`${fmtDate(date)} · ${esc(tw(r))}`;
+  const msg=`שלום ${r.contactName}, כאן ${me.name}, נהג/ת מתנדב/ת מ"${APP_NAME}". לקחתי את ${rideWord(r)} מ${r.fromCity} ל${r.toCity} ${kind==='series'?'(קבועה)':'ב'+fmtDate(date)}, בשעה ${tw(r)}. אשמח לתאם את הפרטים.`;
   const st=stageOf(r,date);
   const doneBtn=st==='assigned'?`<button class="btn accent" data-act="stage" data-s="onway" data-k="${kind}" data-id="${r.id}" data-date="${date}">יצאתי לדרך</button>`
     :st==='onway'?`<button class="btn accent" data-act="stage" data-s="riding" data-k="${kind}" data-id="${r.id}" data-date="${date}">אספתי את הנוסע/ת</button>`
@@ -1276,6 +1285,7 @@ function renderEasy(){
       <div><span>לאן</span><b>${esc(ez.toPlace||'')}${ez.toPlace&&ez.toCity?', ':''}${esc(ez.toCity||'')}</b></div>
       ${nd.length?`<div><span>חשוב לדעת</span><b>${nd.join(' · ')}</b></div>`:''}${ez.purpose?`<div><span>מטרה</span><b>${PURPOSES[ez.purpose]}</b></div>`:''}
       <div><span>לתיאום</span><b>${esc(ezProf.contactName||'')} · <span dir="ltr">${esc(ezProf.phone||'')}</span></b></div></div>
+      <div class="amb-note" style="margin-top:14px"><b>חשוב:</b> זה לא אמבולנס. הנהגים מתנדבים בלי הכשרה רפואית. אם צריך אמבולנס, מתקשרים ל-101.</div>
       <p class="err" id="ezErr"></p>
       <button class="btn brand ez-next big" data-act="ezPublish">כן, לפרסם</button><button class="btn ghost ez-next" data-act="ezFix">לתקן</button>
       <p class="hint" style="text-align:center">בלחיצה על "כן" אני מאשר/ת את <a href="#terms">התקנון</a> ושיתוף פרטי הנסיעה עם נהג/ת מתנדב/ת.</p>`;
@@ -1364,6 +1374,7 @@ function openEdit(id){
       <div class="field" data-e-once><label class="lbl">תאריך</label><input type="date" name="date" value="${esc(r.date||'')}"></div>
       <div class="field full" data-e-weekly><span class="lbl">ימים</span><div class="checks">${DAYS.slice(0,6).map((d,i)=>`<label><input type="checkbox" name="days" value="${i}" ${(r.days||[]).includes(String(i))?'checked':''}>${d}׳</label>`).join('')}</div></div>
       ${f('time','שעת איסוף',r.time,'type="time"')}
+      ${f('timeTo','אפשר עד שעה',r.timeTo||'','type="time"')}
       <div class="field" data-e-weekly><label class="lbl">עד תאריך</label><input type="date" name="until" value="${esc(r.until||'')}"></div>
       ${f('passengers','מספר נוסעים',r.passengers||1,'type="number" min="1" max="8"')}
     </div>
@@ -1398,7 +1409,7 @@ async function saveEdit(e){
   e.preventDefault();const f=e.target,fd=new FormData(f),err=$('#editErr');err.textContent='';
   const s=k=>String(fd.get(k)||'').trim();
   const u={kind:s('kind'),orgName:s('orgName'),contactName:s('contactName'),phone:cleanPhone(s('phone')),fromCity:s('fromCity'),fromPlace:s('fromPlace'),
-    toCity:s('toCity'),toPlace:s('toPlace'),schedule:s('schedule'),date:s('date'),days:fd.getAll('days'),until:s('until'),time:s('time'),
+    toCity:s('toCity'),toPlace:s('toPlace'),schedule:s('schedule'),date:s('date'),days:fd.getAll('days'),until:s('until'),time:s('time'),timeTo:s('timeTo'),
     passengers:Math.max(1,parseInt(fd.get('passengers'),10)||1),needs:fd.getAll('needs'),notes:s('notes'),access:s('kind')==='org'?(s('access')||'all'):'all'};
   if(u.kind==='org'&&!u.orgName)return err.textContent='נא למלא שם עמותה.';
   if(!u.contactName||!validPhone(u.phone))return err.textContent='נא לבדוק את איש הקשר והטלפון.';
@@ -1580,7 +1591,7 @@ function notifyNewRide(r){
     if(d.active===false||d.verification?.status!=='approved')continue;
     if(!(areaMatch(d.area,r.fromCity)||areaMatch(d.area,r.toCity)))continue;
     if(!fitsAvail(d,occ,r.time))continue;
-    notify('drv:'+(d.id),`נסיעה חדשה באזור שלך: ${r.fromCity} ← ${r.toCity}, ${r.schedule==='weekly'?'כל שבוע':fmtDate(r.date)} ב-${r.time}`,'#drive');
+    notify('drv:'+(d.id),`${isDlv(r)?'שליחות חדשה ('+(ITEMS[r.item]||'')+')':'נסיעה חדשה'} באזור שלך: ${r.fromCity} ← ${r.toCity}, ${r.schedule==='weekly'?'כל שבוע':fmtDate(r.date)} ב-${tw(r)}`,'#drive');
   }
 }
 /* ההתראות לפי המסך: נהג בלוח, מבקש בעמוד הנסיעות, מנהל בניהול. בבית: הכל. */
@@ -1591,7 +1602,7 @@ function myTargets(){const v=(location.hash||'#home').slice(1),t=[];
 function virtualNotifs(){
   const out=[];const tmr=addDays(1);
   const T=myTargets();
-  if(me&&T.includes('drv:'+me.id))for(const it of myItems())if(it.date===tmr)out.push({virt:true,text:`תזכורת: מחר ב-${it.r.time} נסיעה מ${it.r.fromCity} ל${it.r.toCity}`,link:'#drive'});
+  if(me&&T.includes('drv:'+me.id))for(const it of myItems())if(it.date===tmr)out.push({virt:true,text:`תזכורת: מחר ב-${tw(it.r)} ${isDlv(it.r)?'שליחות':'נסיעה'} מ${it.r.fromCity} ל${it.r.toCity}`,link:'#drive'});
   if(reqPhone&&T.includes(myReqKey()))for(const r of requests)if(isMine(r)&&r.status!=='cancelled')for(const d of occDates(r,2))if(!driverFor(r,d)&&hoursUntil(d,r.time)<=24&&hoursUntil(d,r.time)>0)out.push({virt:true,text:`לנסיעה ${fmtDate(d)} ב-${r.time} מ${r.fromCity} עדיין אין נהג. הצוות שלנו מטפל.`,link:'#need'});
   if(adminOn&&T.includes('admin')){const u=urgentRides().length;if(u)out.push({virt:true,text:`${u===1?'נסיעה אחת':u+' נסיעות'} ב-24 השעות הקרובות בלי נהג`,link:'#admin'});}
   return out;
@@ -1832,7 +1843,7 @@ document.addEventListener('change',e=>{
   else if(t.matches('input[data-docdate]')&&vDraft){const k=t.dataset.docdate;vDraft[k]={...(vDraft[k]||{}),[DOCS[k].dateKey]:t.value};}
   else if(t.id==='vDecl')vDecl=t.checked;
 });
-$('#needForm').addEventListener('change',e=>{if(['kind','schedule','needs'].includes(e.target.name))syncNeedForm();});
+$('#needForm').addEventListener('change',e=>{if(['kind','schedule','needs','rtype'].includes(e.target.name))syncNeedForm();});
 $('#needForm').addEventListener('submit',submitNeed);
 document.addEventListener('submit',async e=>{
   if(e.target.id==='editForm')saveEdit(e);
