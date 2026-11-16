@@ -132,6 +132,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-o
 .site-foot{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:center;padding:28px 16px 40px;font-size:15px;color:var(--muted)}
 .site-foot a{color:var(--muted)}
 @media(max-width:860px){.site-foot{padding-bottom:110px}}
+.demo-bar{display:inline-flex;gap:6px;align-items:center;margin-inline:8px;white-space:nowrap}
+.demo-bar select{font:inherit;font-weight:700;padding:4px 8px;border-radius:8px;border:1px solid rgba(0,0,0,.25);background:#fff}
 .amb-note{background:#fff1f0;border:1px solid #f3c2bd;color:#7a271a;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.55}
 .tag.delivery{background:#eef4ff;color:#1d4ed8;font-weight:700}
 .push-note{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--brand-soft);border:1px solid var(--brand);border-radius:12px;padding:12px 14px;margin:10px 0 4px;font-size:15px}
@@ -457,7 +459,7 @@ html.a-still *{animation:none!important;transition:none!important;scroll-behavio
     <button class="bell a11y-btn" data-act="a11y" aria-label="התאמות נגישות"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="4.5" r="1.8"/><path d="M5 8.5l7 1.5 7-1.5M12 10v5M9 21l3-6 3 6"/></svg></button>
     <button class="bell" data-act="bell" aria-label="התראות"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span id="bellCnt" hidden>0</span></button>
   </div>
-  <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">תצוגת שבת</button></div>
+  <div class="demo-banner" id="demoBanner" hidden>גרסת הדגמה: הנתונים לדוגמה ונשמרים רק במכשיר הזה.<span class="demo-bar" id="demoBar" hidden></span><button data-act="resetDemo">איפוס</button><button data-act="previewShabbat">תצוגת שבת</button></div>
 </header>
 
 <div class="shabbat" id="shabbat" hidden><div class="shabbat-in">

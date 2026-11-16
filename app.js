@@ -966,7 +966,7 @@ const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platfo
 const isMobile=()=>matchMedia('(max-width:860px)').matches||isIOS()||/android/i.test(navigator.userAgent);
 function instSnoozed(){try{return Date.now()<+(localStorage.getItem('nb-inst-snooze')||0);}catch(e){return false;}}
 function showInstall(){const el=document.getElementById('inst');if(!el)return;
-  if(isStandalone()||!isMobile()||instSnoozed()||location.hash==='#admin'||(!installEvt&&!isIOS())){el.hidden=true;return;}
+  if(DEMO||isStandalone()||!isMobile()||instSnoozed()||location.hash==='#admin'||(!installEvt&&!isIOS())){el.hidden=true;return;}
   el.innerHTML=`<img src="icon-192.png" alt=""><div class="it"><b>התקינו את האפליקציה</b>פותחים בלחיצה ממסך הבית.</div><button class="btn" data-act="${installEvt?'install':'iosHow'}">התקנה</button><button class="x" data-act="instNo" aria-label="סגירה">×</button>`;el.hidden=false;}
 function iosHowDlg(){const share='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg>';
   openDlg(`<h3>התקנה באייפון</h3><ol class="ios-steps"><li>לוחצים על כפתור השיתוף ${share} בתחתית ספארי</li><li>גוללים ובוחרים <b>"הוספה למסך הבית"</b></li><li>לוחצים <b>"הוספה"</b> למעלה</li></ol><p class="hint">אם פתחתם את האתר מתוך וואטסאפ או אינסטגרם, פתחו אותו קודם בספארי.</p><button class="btn" data-act="closeDlg">הבנתי</button>`);}
@@ -1634,6 +1634,20 @@ async function orgTeamDlg(orgName){
     <div class="grid" style="margin-top:12px"><div class="field"><label class="lbl" for="otEmail">מייל (חשבון גוגל)</label><input id="otEmail" type="email" dir="ltr" placeholder="name@gmail.com"></div>
     <div class="field"><label class="lbl" for="otRole">תפקיד</label><select id="otRole"><option value="staff">צוות</option><option value="admin">מנהל/ת</option></select></div></div>
     <div class="actions"><button class="btn" data-act="orgTeamAdd" data-org="${esc(orgName||'')}">הוספה</button><button class="btn ghost" data-act="closeDlg">סגירה</button></div>`);}
+const DEMO_ROLES=[['guest','אורח/ת'],['org','רכז/ת בעמותה'],['private','אדם פרטי'],['driver','נהג/ת מאומת/ת'],['newdriver','נהג/ת בהמתנה לאישור'],['admin','צוות נוסעים ביחד']];
+let demoRole=lsGet('rides-demo-role')||'guest';
+function renderDemoBar(){const el=$('#demoBar');if(!el)return;if(!DEMO){el.hidden=true;return;}
+  el.innerHTML=`<label for="demoRole">צפייה כ:</label><select id="demoRole">${DEMO_ROLES.map(([k,t])=>`<option value="${k}" ${k===demoRole?'selected':''}>${t}</option>`).join('')}</select>`;el.hidden=false;}
+async function setDemoRole(role){demoRole=role;lsSet('rides-demo-role',role);
+  const drv={driver:'d1',newdriver:'d3'}[role],ph={org:'035551234',private:'0507654321'}[role];
+  me=null;lsSet(ME_KEY,null);reqPhone=null;lsSet(REQ_KEY,null);
+  if(drv){const d=(await new Promise(r=>{let u=api.watch('drivers',drv,x=>{r(x);setTimeout(()=>u&&u(),0);});}));if(d){me=d;lsSet(ME_KEY,{id:d.id,name:d.name,phone:d.phone});}}
+  if(ph){reqPhone=ph;lsSet(REQ_KEY,ph);}
+  if(role==='admin')await api.login();else if(adminOn)await api.logout();
+  enterBoard();renderReqMine();renderAccount();
+  location.hash={guest:'#home',org:'#need',private:'#need',driver:'#drive',newdriver:'#drive',admin:'#admin'}[role];
+  if(ph)setTimeout(()=>document.querySelector('[data-act=ntab][data-tab=mine]')?.click(),60);
+  toast('צפייה כ'+DEMO_ROLES.find(x=>x[0]===role)[1]);}
 function delAcctDlg(){openDlg(`<h3>מחיקת החשבון</h3><p>נמחקים לצמיתות: הפרופיל, פרטי הקשר, מסמכי הנהג, האימות וההתראות. נסיעות פתוחות שפרסמת יבוטלו. נסיעות שכבר בוצעו נשארות לסטטיסטיקה, בלי שם ובלי טלפון.</p>
   <p class="hint">אי אפשר לבטל את המחיקה. כדי לאשר, כתבו את המילה <b>מחיקה</b>.</p>
   <div class="field"><label class="lbl" for="delConfirm">אישור</label><input id="delConfirm" type="text" autocomplete="off"></div>
@@ -1908,6 +1922,8 @@ document.addEventListener('change',e=>{
   else if(t.matches('input[data-docdate]')&&vDraft){const k=t.dataset.docdate;vDraft[k]={...(vDraft[k]||{}),[DOCS[k].dateKey]:t.value};}
   else if(t.id==='vDecl')vDecl=t.checked;
 });
+document.addEventListener('change',e=>{if(e.target.id==='demoRole')setDemoRole(e.target.value);});
+renderDemoBar();
 $('#needForm').addEventListener('change',e=>{if(['kind','schedule','needs','rtype'].includes(e.target.name))syncNeedForm();});
 $('#needForm').addEventListener('submit',submitNeed);
 document.addEventListener('submit',async e=>{
