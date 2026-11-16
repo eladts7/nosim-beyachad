@@ -870,6 +870,7 @@ function communityShowcase(pool){
 /* מדדי קהילה אמיתיים, מחושבים מהנסיעות (בהדגמה יש ערכים מוכנים) */
 function funOf(d){
   if(d.fun&&!LIVE)return d.fun;
+  if(LIVE&&d.stats)return {orgVotes:(d.orgApprovals||[]).length,access:d.stats.access||0,lastMinute:d.stats.lastMinute||0,streak:d.stats.streak||0,thanks:(d.thanks||[]).length+((d.fun||{}).thanks||0)};
   const mine=[];for(const r of requests){if(r.driverId===d.id&&(r.status==='done'||r.schedule==='weekly'))mine.push({r,at:r.takenAt,date:r.date});for(const [dt,c] of Object.entries(r.covers||{}))if(c.driverId===d.id)mine.push({r,at:c.at,date:dt,done:c.done});}
   const access=mine.filter(x=>(x.r.needs||[]).some(k=>['wheelchair','cognitive','escort','guideDog'].includes(k))).length;
   const lastMinute=mine.filter(x=>x.at&&x.date&&(new Date(`${x.date}T${x.r.time||'00:00'}`).getTime()-x.at)<864e5).length;
@@ -1365,6 +1366,7 @@ async function onLiveAuth(u){
   else{me=null;reqPhone=null;}
   resetListeners();applyLiveGates();enterBoard();renderReqMine();renderAccount();renderBell();
   if(api.isAdmin)startDash();else stopDash();
+  if(u&&api.isAdmin&&!onLiveAuth._stats){onLiveAuth._stats=true;api.server('community-stats',{}).catch(()=>{});}
   if(u)subscribePush(false);renderPushNote();
   if(u&&!(api.profile||{}).orgApproved&&!onLiveAuth._tried){onLiveAuth._tried=true;
     api.server('org-team',{action:'join'}).then(r=>{if(r.joined){toast('צורפת לצוות של '+r.orgName);setTimeout(()=>location.reload(),1200);}}).catch(()=>{});}

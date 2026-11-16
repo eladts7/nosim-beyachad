@@ -45,9 +45,9 @@ service cloud.firestore {
       allow create: if signedIn() && uid() == d &&
         request.resource.data.get('verification', {}).get('status', '') == 'none' &&
         request.resource.data.get('active', true) == true &&
-        !('orgApprovals' in request.resource.data);
+        !('orgApprovals' in request.resource.data) && !('stats' in request.resource.data);
       allow update: if isAdmin()
-        || (signedIn() && uid() == d && !changed().hasAny(['active', 'orgApprovals'])
+        || (signedIn() && uid() == d && !changed().hasAny(['active', 'orgApprovals', 'stats'])
             && (!('verification' in changed()) || request.resource.data.verification.status in ['none', 'pending']))
         || (signedIn() && uid() != d && changed().hasOnly(['thanks', 'fun'])
             && (!('thanks' in changed()) || request.resource.data.thanks.size() == resource.data.get('thanks', []).size() + 1));
